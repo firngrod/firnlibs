@@ -16,6 +16,7 @@ namespace FirnLibs
 
       void SetThreadCount(const size_t &count);
       void Push(void (*Function)(void *), void * params);
+      void FinishUp();
 
     protected:
       class FunctionParams
@@ -43,7 +44,7 @@ namespace FirnLibs
       FirnLibs::Threading::Queue<FunctionParams> queue;
 
       std::condition_variable cv;
-      std::mutex mutex;
+      std::mutex mutex, threadMutex;
 
       static void RunnerFunc(void * params);
     };

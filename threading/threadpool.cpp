@@ -16,6 +16,7 @@ Threadpool::~Threadpool()
 
 void Threadpool::SetThreadCount(const size_t &count)
 {
+  std::lock_guard<std::mutex> threadLock(threadMutex);
   // Ramp up the threads.
   while(threadList.size() < count)
   {
@@ -92,6 +93,15 @@ void Threadpool::Push(void (*Function)(void *), void * params)
   queue.Push(funcParams);
   // Notify some thread that there is stuff to do.
   cv.notify_one();
+}
+
+void Threadpool::FinishUp()
+{
+  if(!queue.CanPop())
+    return;
+
+  std::unique_lock<std::mutex> lk(mutex);
+  cv.wait(lk, [this]{return !queue.CanPop();});
 }
 
 }}
