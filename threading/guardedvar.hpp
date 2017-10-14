@@ -15,6 +15,8 @@ namespace FirnLibs
         Token<TT> &operator=(const TT &other) { child = other; }
         operator TT&() { return child; };
         operator TT() const { return child; }
+        TT Copy() const { return child; }
+        TT &Copy(TT& out) const { return out = child; }
       private:
         Token(TT &input, std::mutex &mute) : child(input), mut(mute) {lock = std::unique_lock<std::mutex>(mut);};
         TT &child;
