@@ -5,11 +5,15 @@ namespace FirnLibs { namespace Threading {
 
 Threadpool::Threadpool(const size_t &count)
 {
+  auto tok = finishing.Get();
+  tok = false;
   SetThreadCount(count);
 }
 
 Threadpool::~Threadpool()
 {
+  auto tok = finishing.Get();
+  tok = true;
   // Remove the threads.  Note that this is blocking.
   SetThreadCount(0);
 }
@@ -44,7 +48,8 @@ void Threadpool::SetThreadCount(const size_t &count)
   if(toClose.size() == 0)
     return;
 
-  cv.notify_all();
+  for(auto pkItr: toClose)
+    cv.notify_one();
 
   for(auto pkItr: toClose)
   {
@@ -83,8 +88,12 @@ void Threadpool::RunnerFunc(void * params)
   delete tParams;
 }
 
-void Threadpool::Push(void (*Function)(void *), void * params)
+bool Threadpool::Push(void (*Function)(void *), void * params)
 {
+  // Are we trying to wind it down?
+  if(finishing.Get())
+    return false;
+
   // Generate a new function package to put on the queue
   FunctionParams funcParams;
   funcParams.Function = Function;
@@ -93,10 +102,14 @@ void Threadpool::Push(void (*Function)(void *), void * params)
   queue.Push(funcParams);
   // Notify some thread that there is stuff to do.
   cv.notify_one();
+  return true;
 }
 
 void Threadpool::FinishUp()
 {
+  // Signal that we want to wind it down.
+  finishing.Get() = true;
+
   if(!queue.CanPop())
     return;
 
