@@ -11,22 +11,43 @@ namespace FirnLibs
 {
   class Networking
   {
-  public:
-    class Client
+  protected:
+    // Struct definitions
+
+    // Pipe handling.
+    enum PipeMessage
     {
+      SocketRemove, // Uses identifier
+      ListenerAdd, // Uses fd, *pAddr, callback, callbackState, identifier
+      ConnectionAdd, // Uses fd and *pAddr.
+    };
+    struct PipeMessagePack
+    {
+      PipeMessage msg;
+      int fd = -1;
+      void *pAddr;
+      void *callback;
+      void *state;
+      uint64_t identifier = 0;
     };
 
+    // Client stuff
+  public:
+    #include "client.hpp"
+  protected:
+    friend Client;
 
     // Listening stuff
     #include "listener.hpp"
   protected:
-    int Listen(const int &port, void (*callback)(Listener::AcceptState *), void * callbackState);
+    uint64_t Listen(const int &port, void (*callback)(Listener::AcceptState *), void * callbackState);
     friend Listener;
 
 
     // Things to do with the internal workings, mainly the PollDancer.
   protected:
-    void SignalCloseSocket(const int &fd);
+    uint64_t GetIdentifier();
+    void SignalCloseSocket(const uint64_t &identifier);
     void Cleanup();
     std::thread selectThread;
 
@@ -34,22 +55,7 @@ namespace FirnLibs
     void PollDancer();
     static void PollDancerStat();
 
-    // Pipe handling.
-    enum PipeMessage
-    {
-      SocketRemove, // Uses fd
-      ListenerAdd, // Uses fd, *pAddr, callback, callbackState
-      ConnectionAdd, // Uses fd and *pAddr.
-    };
 
-    struct PipeMessagePack
-    {
-      PipeMessage msg;
-      int fd;
-      void *pAddr;
-      void *callback;
-      void *state;
-    };
     int pipe_fds[2];  // Signal pipe for the select dancer
     bool HandlePipe(const pollfd &pfd, std::vector<PipeMessagePack> &pipeData);
 
@@ -59,15 +65,23 @@ namespace FirnLibs
       void (*callback)(Listener::AcceptState *);
       void *state;
       sockaddr_in addr;
+      uint64_t identifier;
     };
     std::map<int, ListenerState> listeners;  // Listening sockets.
-    bool HandleListener(const pollfd &pfd, std::map<int, sockaddr> &incClients, const ListenerState &lState);
+    bool HandleListener(const pollfd &pfd, const ListenerState &lState);
+    struct ListenerStagingState
+    {
+      void (*callback)(Listener::AcceptState *);
+      Listener::AcceptState * state;
+    };
+    static void StatListenerStaging(void *listenerStagingState);
 
     // Client handling.
     struct ClientState
     {
       sockaddr addr;
       std::vector<char> dataBuf;
+      uint64_t identifier;
     };
     std::map<int, ClientState> clients;
     bool HandleClient(const pollfd &pfd);

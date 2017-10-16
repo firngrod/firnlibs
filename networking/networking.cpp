@@ -7,6 +7,7 @@
 
 namespace FirnLibs {
 
+// Init
 void Networking::Init()
 {
   GetInstance();
@@ -31,7 +32,6 @@ Networking::~Networking()
   Cleanup();
 }
 
-
 void Networking::PollDancerStat()
 {
   GetInstance().PollDancer();
@@ -41,7 +41,6 @@ void Networking::PollDancer()
 {
   std::vector<pollfd> pfds;
   std::vector<PipeMessagePack> pipeData;
-  std::map<int, sockaddr> incClients;
 
   bool cleanup = false;
   while(!cleanup)
@@ -49,7 +48,6 @@ void Networking::PollDancer()
     // Reset the poll fds.
     pfds.resize(0);
     pipeData.resize(0);
-    incClients.clear();
 
     // Add the pipe.
     pfds.push_back(pollfd());
@@ -88,14 +86,14 @@ void Networking::PollDancer()
       auto lItr = listeners.find(pItr.fd);
       if(lItr != listeners.end())
       {
-        if(!HandleListener(pItr, incClients, lItr->second))
+        if(!HandleListener(pItr, lItr->second))
         {
           // If handler returned false, the listener is dead to us.
           // Add it to the list of sockets to remove.  We piggyback on the pipe.
           // This should generally never happen since we would normally kill listeners by piping it in the first place.
           pipeData.push_back(PipeMessagePack());
           pipeData.back().msg = SocketRemove;
-          pipeData.back().fd = pItr.fd;
+          pipeData.back().identifier = lItr->second.identifier;
         }
         continue;
       }
@@ -106,30 +104,28 @@ void Networking::PollDancer()
       {
         if(!HandleClient(pItr))
         {
+          // If the client is closing, pretend that the kill signal was piped.
           pipeData.push_back(PipeMessagePack());
           pipeData.back().msg = SocketRemove;
-          pipeData.back().fd = pItr.fd;
+          pipeData.back().identifier = cItr->second.identifier;
         }
       }
     }
 
     // Now that we have all the stuff handled, let's see what we need to add/remove.
-    for(auto incItr: incClients)
-    {
-      clients[incItr.first] = ClientState();
-      clients[incItr.first].addr = incItr.second;
-    }
-
     // Add new listeners.
     for(auto lItr: pipeData)
     {
       if(lItr.msg == ListenerAdd)
       {
+        // Add the listener to the list of listeners.
         ListenerState &lState = listeners[lItr.fd];
         lState.addr = (*(sockaddr_in*)lItr.pAddr);
         lState.callback = (void (*)(Listener::AcceptState*))lItr.callback;
         lState.state = lItr.state;
+        lState.identifier = lItr.identifier;
         delete (sockaddr_in *)lItr.pAddr;
+        continue;
       }
 
       // Add new clients;
@@ -138,23 +134,38 @@ void Networking::PollDancer()
         clients[lItr.fd] = ClientState();
         clients[lItr.fd].addr = *((sockaddr *)lItr.pAddr);
         delete (sockaddr *)lItr.pAddr;
+        continue;
       }
 
       if(lItr.msg == SocketRemove)
       {
         // Remove action depends on the type of socket.
         close(lItr.fd);
-        auto itr = listeners.find(lItr.fd);
-        if(itr != listeners.end())
-        {
-          listeners.erase(itr);
-          continue;
-        }
 
-        auto itr2 = clients.find(lItr.fd);
-        if(itr2 != clients.end())
+        // Find the fd with the specified identifier.
         {
-          clients.erase(itr2);
+          auto itr = listeners.begin();
+          for(auto itrEnd = listeners.end(); itr != itrEnd; itr++)
+            if(itr->second.identifier == lItr.identifier) break;
+            
+          if(itr != listeners.end())
+          {
+            listeners.erase(itr);
+            continue;
+          }
+        }
+        
+        {
+          auto itr = clients.begin();
+          for(auto itrEnd = clients.end(); itr != itrEnd; itr++)
+            if(itr->second.identifier == lItr.identifier) break;
+          auto itr2 = clients.find(lItr.fd);
+
+          if(itr2 != clients.end())
+          {
+            clients.erase(itr2);
+            continue;
+          }
         }
       }
     }
@@ -203,11 +214,12 @@ bool Networking::HandlePipe(const pollfd &pfd, std::vector<PipeMessagePack> &pip
   return true;
 }
 
-bool Networking::HandleListener(const pollfd &pfd, std::map<int, sockaddr> &incClients, const ListenerState &lState)
+bool Networking::HandleListener(const pollfd &pfd, const ListenerState &lState)
 {
   if(!(pfd.revents & POLLIN))
     return true;
 
+  int recvdClients = 0;
   sockaddr clientAddr;
   socklen_t clilen = sizeof(clientAddr);
   // Get the incoming socket.
@@ -217,17 +229,39 @@ bool Networking::HandleListener(const pollfd &pfd, std::map<int, sockaddr> &incC
     newfd = accept(pfd.fd, &clientAddr, &clilen);
     if(newfd >= 0)
     {
-      incClients[newfd] = clientAddr;
+      recvdClients++;
+      // Handle the new client.  This is done by first putting it on hold until the user can specify callback and such.
+      // Create a message to send to the user.
+      Listener::AcceptState * acceptState = new Listener::AcceptState();
+      acceptState->asyncState = lState.state;
+      acceptState->client = std::shared_ptr<Client>(new Client());
+      acceptState->client->limboState.identifier = GetIdentifier();
+      acceptState->client->limboState.fd = newfd;
+      acceptState->client->limboState.pAddr = (void *) new sockaddr(clientAddr);
+      ListenerStagingState * listenerStagingState = new ListenerStagingState();
+      listenerStagingState->state = acceptState;
+      listenerStagingState->callback = lState.callback;
+      msgThreadpool.Push(StatListenerStaging, (void *)listenerStagingState);
     }
   } while(newfd >= 0);
 
   // At this point, if we have no sockets, we have an error on the listener and it needs to die.
-  if(incClients.size() == 0)
+  if(recvdClients == 0)
     return false;
 
   return true;
 }
 
+
+void Networking::StatListenerStaging(void *listenerStagingState)
+{
+  ListenerStagingState * statePtr = (ListenerStagingState *)listenerStagingState;
+  statePtr->callback(statePtr->state);
+  delete statePtr;
+}
+
+
+/* TODO:  Remove assumptions of package length from this code and move it to later code.  This should not treat data.  Basically, redo the function. */
 bool Networking::HandleClient(const pollfd &pfd)
 {
   int readyData = 0;
@@ -276,7 +310,7 @@ void Networking::MessageHandler(void * pack)
   std::cout << "Recieved data: " << (char *)&mPack->messageData[0] << std::endl;
 }
 
-int Networking::Listen(const int &port, void (*callback)(Listener::AcceptState *), void * callbackState)
+uint64_t Networking::Listen(const int &port, void (*callback)(Listener::AcceptState *), void * callbackState)
 {
   if(port == 0)
     return -1;
@@ -308,28 +342,39 @@ int Networking::Listen(const int &port, void (*callback)(Listener::AcceptState *
   data.pAddr = (void *)lAddr;
   data.callback = (void *)callback;
   data.state = callbackState;
+  data.identifier = GetIdentifier();
 
   write(pipe_fds[1], (char *)&data, sizeof(data));
-  return sockFd;
+  return data.identifier;
 }
 
-void Networking::SignalCloseSocket(const int &fd)
+void Networking::SignalCloseSocket(const uint64_t &identifier)
 {
-  if(fd < 0)
+  if(identifier == 0)
     return;
 
   PipeMessagePack data;
   data.msg = SocketRemove;
-  data.fd = fd;
+  data.identifier = identifier;
   write(pipe_fds[1], (char *)&data, sizeof(data));
 }
 
 void Networking::Cleanup()
 {
+  // Close the pipe.  This will be interpreted as a close signal.
   close(pipe_fds[1]);
+  // Wait for the select thread to close.
   selectThread.join();
 }
 
+uint64_t Networking::GetIdentifier()
+{
+  // Overflow and identifier collision is possible, but not probable.  The world will probably end first.
+  static int identifier = 0;
+  // identifier == 0 signals invalid identifier.
+  do identifier++; while (identifier == 0);
+  return identifier;
+}
 
 
 }

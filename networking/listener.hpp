@@ -7,21 +7,21 @@
     class Listener
     {
     public:
-      Listener() {fd = -1;};
+      Listener() { identifier = 0;}
       ~Listener();
 
       struct AcceptState
       {
-        void * AcceptCallbackState;
+        void * asyncState;
         std::shared_ptr<Client> client;
       };
-      bool Listen(const int &port, void (*callback)(AcceptState *), void * callbackState);
+      bool Listen(const int &port, void (*callback)(AcceptState *), void * asyncState);
       void Stop();
       // Prevent copying to avoid issues with deconstruction;
       Listener(const Listener &) = delete;
       void operator=(const Listener &) = delete;
     protected:
-      int fd;
+      int identifier;
       friend Networking;
     };
 

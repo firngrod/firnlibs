@@ -1,19 +1,19 @@
 #include "networking.hpp"
 namespace FirnLibs {
 
-bool Networking::Listener::Listen(const int &port, void (*callback)(AcceptState *), void * callbackState)
+bool Networking::Listener::Listen(const int &port, void (*callback)(AcceptState *), void * asyncState)
 {
   // If this already has an fd, don't overwrite it with a new 
-  if(fd != -1)
+  if(identifier != 0)
     return false;
 
   // We need a callback.  Not necessarily a state.
   if(callback == NULL)
     return false;
 
-  fd = Networking::GetInstance().Listen(port, callback, callbackState);
+  identifier = Networking::GetInstance().Listen(port, callback, asyncState);
 
-  if(fd == -1)
+  if(identifier == 0)
     return false;
 
   return true;
@@ -27,8 +27,8 @@ Networking::Listener::~Listener()
 
 void Networking::Listener::Stop()
 {
-  Networking::GetInstance().SignalCloseSocket(fd);
-  fd = -1;
+  Networking::GetInstance().SignalCloseSocket(identifier);
+  identifier = 0;
 }
 
 }
