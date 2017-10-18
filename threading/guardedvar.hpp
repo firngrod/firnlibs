@@ -26,9 +26,10 @@ namespace FirnLibs
 
       GuardedVar(const T &input = T()) { child = input; }
       Token<T> Get() { return Token<T>(child, mut); }
+      GuardedVar<T> operator=(const GuardedVar<T> &other) = delete;
+      GuardedVar<T> (const GuardedVar<T> &other) = delete;
 
     private:
-      GuardedVar<T> operator=(const GuardedVar<T> &other) {}
       T child;
       std::mutex mut;
     };

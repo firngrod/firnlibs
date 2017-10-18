@@ -26,7 +26,7 @@ namespace FirnLibs
       PipeMessage msg;
       int fd = -1;
       void *pAddr;
-      void *callback;
+      void (*callback)(void *);
       void *state;
       uint64_t identifier = 0;
     };
@@ -38,9 +38,11 @@ namespace FirnLibs
     friend Client;
 
     // Listening stuff
+  public:
     #include "listener.hpp"
   protected:
     uint64_t Listen(const int &port, void (*callback)(Listener::AcceptState *), void * callbackState);
+    void AddSocket(const PipeMessagePack &pack);
     friend Listener;
 
 
@@ -53,7 +55,6 @@ namespace FirnLibs
 
     // Select dancer function
     void PollDancer();
-    static void PollDancerStat();
 
 
     int pipe_fds[2];  // Signal pipe for the select dancer
@@ -74,17 +75,17 @@ namespace FirnLibs
       void (*callback)(Listener::AcceptState *);
       Listener::AcceptState * state;
     };
-    static void StatListenerStaging(void *listenerStagingState);
 
     // Client handling.
     struct ClientState
     {
       sockaddr addr;
-      std::vector<char> dataBuf;
+      void * state;
+      void (*callback)(void *);
       uint64_t identifier;
     };
     std::map<int, ClientState> clients;
-    bool HandleClient(const pollfd &pfd);
+    bool HandleClient(const pollfd &pfd, const ClientState &cState);
 
     // Client message handling
     struct MessagePack
@@ -92,7 +93,7 @@ namespace FirnLibs
       int fd;
       std::vector<unsigned char> messageData;
     };
-    static void MessageHandler(void *pack);
+
     FirnLibs::Threading::Threadpool msgThreadpool;
 
 

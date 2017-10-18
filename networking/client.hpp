@@ -9,10 +9,10 @@
     class Client
     {
     public:
-      Client() { identifier = 0;}
+      Client();
       ~Client();
 
-      struct DataReceivedState
+      class DataReceivedState
       {
         void * asyncState;
         std::vector<unsigned char> message;
@@ -22,6 +22,13 @@
     protected:
       int identifier;
 
-      PipeMessagePack limboState;
+      struct MessageForwardStruct
+      {
+        Client * client;
+        std::vector<unsigned char> message;
+      };
+      
+      void HandleIncData(const std::vector<unsigned char> &message);
+      PipeMessagePack * limboState;
       friend Networking;
     };

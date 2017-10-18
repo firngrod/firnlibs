@@ -24,17 +24,17 @@ Networking::Networking() : msgThreadpool(2)
   if(pipe(pipe_fds))
     return;
 
-  selectThread = std::thread(PollDancerStat);
+  auto lambda = [](Networking *instance) -> void
+  {
+    instance->PollDancer();
+  };
+
+  selectThread = std::thread(lambda, this);
 }
 
 Networking::~Networking()
 {
   Cleanup();
-}
-
-void Networking::PollDancerStat()
-{
-  GetInstance().PollDancer();
 }
 
 void Networking::PollDancer()
@@ -102,7 +102,7 @@ void Networking::PollDancer()
       auto cItr = clients.find(pItr.fd);
       if(cItr != clients.end())
       {
-        if(!HandleClient(pItr))
+        if(!HandleClient(pItr, cItr->second))
         {
           // If the client is closing, pretend that the kill signal was piped.
           pipeData.push_back(PipeMessagePack());
@@ -235,13 +235,24 @@ bool Networking::HandleListener(const pollfd &pfd, const ListenerState &lState)
       Listener::AcceptState * acceptState = new Listener::AcceptState();
       acceptState->asyncState = lState.state;
       acceptState->client = std::shared_ptr<Client>(new Client());
-      acceptState->client->limboState.identifier = GetIdentifier();
-      acceptState->client->limboState.fd = newfd;
-      acceptState->client->limboState.pAddr = (void *) new sockaddr(clientAddr);
+      acceptState->client->limboState = new PipeMessagePack;
+      acceptState->client->limboState->identifier = GetIdentifier();
+      acceptState->client->limboState->fd = newfd;
+      acceptState->client->limboState->pAddr = (void *) new sockaddr(clientAddr); // TODO Make sure this is deleted.
+
       ListenerStagingState * listenerStagingState = new ListenerStagingState();
       listenerStagingState->state = acceptState;
       listenerStagingState->callback = lState.callback;
-      msgThreadpool.Push(StatListenerStaging, (void *)listenerStagingState);
+
+      auto lambda = [](void * state) -> void 
+      {
+        ListenerStagingState * statePtr = (ListenerStagingState *)state;
+        statePtr->callback(statePtr->state);
+        delete statePtr->state;
+        delete statePtr;
+      };
+
+      msgThreadpool.Push(lambda, (void *)listenerStagingState);
     }
   } while(newfd >= 0);
 
@@ -253,16 +264,7 @@ bool Networking::HandleListener(const pollfd &pfd, const ListenerState &lState)
 }
 
 
-void Networking::StatListenerStaging(void *listenerStagingState)
-{
-  ListenerStagingState * statePtr = (ListenerStagingState *)listenerStagingState;
-  statePtr->callback(statePtr->state);
-  delete statePtr;
-}
-
-
-/* TODO:  Remove assumptions of package length from this code and move it to later code.  This should not treat data.  Basically, redo the function. */
-bool Networking::HandleClient(const pollfd &pfd)
+bool Networking::HandleClient(const pollfd &pfd, const ClientState &cState)
 {
   int readyData = 0;
   int rc = ioctl(pfd.fd, FIONREAD, &readyData);
@@ -277,37 +279,19 @@ bool Networking::HandleClient(const pollfd &pfd)
   ClientState &state = clients[pfd.fd];
 
   // Receive the data.  First make room in the state data vector
-  size_t prevSize = state.dataBuf.size();
-  size_t recieved = 0;
-  state.dataBuf.resize(state.dataBuf.size() + readyData);
+  Client::MessageForwardStruct * fwdStruct = new Client::MessageForwardStruct;
+  fwdStruct->message.resize(readyData);
+
   // Now receive while there is data on the socket.
+  size_t recieved = 0;
   while(recieved < readyData)
   {
-    recieved += read(pfd.fd, &state.dataBuf[prevSize + recieved], readyData - recieved);
+    recieved += read(pfd.fd, &fwdStruct->message[recieved], readyData - recieved);
   }
-  
-  // Now that we have data, check if we have a complete message.
-  if(state.dataBuf.size() > sizeof(unsigned int32_t) && *((unsigned int32_t *)&state.dataBuf[0]) <= state.dataBuf.size())
-  {
-    // We do.  Pack it up in a neat little package and send it off to the message handler.
-    MessagePack *msgPack = new MessagePack();
-    msgPack->messageData.resize(*((unsigned int32_t *)&state.dataBuf[0]) - 4);
-    memcpy(&msgPack->messageData[0], &state.dataBuf[4], msgPack->messageData.size());
-    msgPack->fd = pfd.fd;
-    msgThreadpool.Push(MessageHandler, (void *)msgPack);
 
-    // Erase the handled data.
-    state.dataBuf.erase(state.dataBuf.begin(), state.dataBuf.begin() + *((unsigned int32_t *)&state.dataBuf[0]));
-  }
+  msgThreadpool.Push(cState.callback, cState.state);
 
   return true;
-}
-
-void Networking::MessageHandler(void * pack)
-{
-  MessagePack * mPack = (MessagePack *)pack;
-  std::cout << "Recieved data on socket " << mPack->fd << std::endl;
-  std::cout << "Recieved data: " << (char *)&mPack->messageData[0] << std::endl;
 }
 
 uint64_t Networking::Listen(const int &port, void (*callback)(Listener::AcceptState *), void * callbackState)
@@ -322,7 +306,7 @@ uint64_t Networking::Listen(const int &port, void (*callback)(Listener::AcceptSt
 
   // Bind the socket.
   sockaddr_in *lAddr = new sockaddr_in();
-  memset(lAddr, sizeof(sockaddr_in), 0);
+  memset(lAddr, 0, sizeof(sockaddr_in));
   lAddr->sin_family = AF_INET;
   lAddr->sin_addr.s_addr = INADDR_ANY;
   lAddr->sin_port = htons(port);
@@ -340,12 +324,17 @@ uint64_t Networking::Listen(const int &port, void (*callback)(Listener::AcceptSt
   data.msg = ListenerAdd;
   data.fd = sockFd;
   data.pAddr = (void *)lAddr;
-  data.callback = (void *)callback;
+  data.callback = (void (*)(void *))callback;
   data.state = callbackState;
   data.identifier = GetIdentifier();
 
   write(pipe_fds[1], (char *)&data, sizeof(data));
   return data.identifier;
+}
+
+void Networking::AddSocket(const PipeMessagePack &pack)
+{
+  write(pipe_fds[1], (char *)&pack, sizeof(pack));
 }
 
 void Networking::SignalCloseSocket(const uint64_t &identifier)
