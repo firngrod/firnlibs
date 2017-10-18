@@ -1,5 +1,6 @@
 #include "networking.hpp"
 #include "unistd.h"
+#include <iostream>
 
 namespace FirnLibs {
 
@@ -53,6 +54,7 @@ bool Networking::Client::Commence(void (*callback)(DataReceivedState *), void *a
 
 void Networking::Client::HandleIncData(const std::vector<unsigned char> &data)
 {
+  std::cout << "Received data: " << (char *)&data[0];
 }
 
 

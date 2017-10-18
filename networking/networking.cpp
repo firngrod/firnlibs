@@ -62,6 +62,13 @@ void Networking::PollDancer()
       pfds.back().events = POLLIN;
     }
 
+    for(auto cItr: clients)
+    {
+      pfds.push_back(pollfd());
+      pfds.back().fd=cItr.first;
+      pfds.back().events = POLLIN;
+    }
+
     // Do the poll
     poll(&pfds[0], pfds.size(), -1);
 
@@ -125,6 +132,10 @@ void Networking::PollDancer()
         lState.state = lItr.state;
         lState.identifier = lItr.identifier;
         delete (sockaddr_in *)lItr.pAddr;
+
+        // Actually listen
+        listen(lItr.fd, 10);
+
         continue;
       }
 
@@ -133,6 +144,8 @@ void Networking::PollDancer()
       {
         clients[lItr.fd] = ClientState();
         clients[lItr.fd].addr = *((sockaddr *)lItr.pAddr);
+        clients[lItr.fd].state = lItr.state;
+        clients[lItr.fd].callback = lItr.callback;
         delete (sockaddr *)lItr.pAddr;
         continue;
       }
@@ -159,11 +172,10 @@ void Networking::PollDancer()
           auto itr = clients.begin();
           for(auto itrEnd = clients.end(); itr != itrEnd; itr++)
             if(itr->second.identifier == lItr.identifier) break;
-          auto itr2 = clients.find(lItr.fd);
 
-          if(itr2 != clients.end())
+          if(itr != clients.end())
           {
-            clients.erase(itr2);
+            clients.erase(itr);
             continue;
           }
         }
@@ -219,45 +231,40 @@ bool Networking::HandleListener(const pollfd &pfd, const ListenerState &lState)
   if(!(pfd.revents & POLLIN))
     return true;
 
-  int recvdClients = 0;
   sockaddr clientAddr;
   socklen_t clilen = sizeof(clientAddr);
   // Get the incoming socket.
   int newfd = 0;
-  do
+
+  newfd = accept(pfd.fd, &clientAddr, &clilen);
+  if(newfd >= 0)
   {
-    newfd = accept(pfd.fd, &clientAddr, &clilen);
-    if(newfd >= 0)
+    // Handle the new client.  This is done by first putting it on hold until the user can specify callback and such.
+    // Create a message to send to the user.
+    Listener::AcceptState * acceptState = new Listener::AcceptState();
+    acceptState->asyncState = lState.state;
+    acceptState->client = std::shared_ptr<Client>(new Client());
+    acceptState->client->limboState = new PipeMessagePack;
+    acceptState->client->limboState->identifier = GetIdentifier();
+    acceptState->client->limboState->fd = newfd;
+    acceptState->client->limboState->pAddr = (void *) new sockaddr(clientAddr); // TODO Make sure this is deleted.
+
+    ListenerStagingState * listenerStagingState = new ListenerStagingState();
+    listenerStagingState->state = acceptState;
+    listenerStagingState->callback = lState.callback;
+
+    auto lambda = [](void * state) -> void 
     {
-      recvdClients++;
-      // Handle the new client.  This is done by first putting it on hold until the user can specify callback and such.
-      // Create a message to send to the user.
-      Listener::AcceptState * acceptState = new Listener::AcceptState();
-      acceptState->asyncState = lState.state;
-      acceptState->client = std::shared_ptr<Client>(new Client());
-      acceptState->client->limboState = new PipeMessagePack;
-      acceptState->client->limboState->identifier = GetIdentifier();
-      acceptState->client->limboState->fd = newfd;
-      acceptState->client->limboState->pAddr = (void *) new sockaddr(clientAddr); // TODO Make sure this is deleted.
+      ListenerStagingState * statePtr = (ListenerStagingState *)state;
+      statePtr->callback(statePtr->state);
+      delete statePtr->state;
+      delete statePtr;
+    };
 
-      ListenerStagingState * listenerStagingState = new ListenerStagingState();
-      listenerStagingState->state = acceptState;
-      listenerStagingState->callback = lState.callback;
-
-      auto lambda = [](void * state) -> void 
-      {
-        ListenerStagingState * statePtr = (ListenerStagingState *)state;
-        statePtr->callback(statePtr->state);
-        delete statePtr->state;
-        delete statePtr;
-      };
-
-      msgThreadpool.Push(lambda, (void *)listenerStagingState);
-    }
-  } while(newfd >= 0);
-
+    msgThreadpool.Push(lambda, (void *)listenerStagingState);
+  }
   // At this point, if we have no sockets, we have an error on the listener and it needs to die.
-  if(recvdClients == 0)
+  if(newfd < 0)
     return false;
 
   return true;
@@ -281,6 +288,7 @@ bool Networking::HandleClient(const pollfd &pfd, const ClientState &cState)
   // Receive the data.  First make room in the state data vector
   Client::MessageForwardStruct * fwdStruct = new Client::MessageForwardStruct;
   fwdStruct->message.resize(readyData);
+  fwdStruct->client = (Client *)cState.state;
 
   // Now receive while there is data on the socket.
   size_t recieved = 0;
@@ -289,7 +297,7 @@ bool Networking::HandleClient(const pollfd &pfd, const ClientState &cState)
     recieved += read(pfd.fd, &fwdStruct->message[recieved], readyData - recieved);
   }
 
-  msgThreadpool.Push(cState.callback, cState.state);
+  msgThreadpool.Push(cState.callback, fwdStruct);
 
   return true;
 }
@@ -315,9 +323,6 @@ uint64_t Networking::Listen(const int &port, void (*callback)(Listener::AcceptSt
     delete lAddr;
     return -1;
   }
-
-  // Actually listen
-  listen(sockFd, 10);
 
   // Message the listener to the select thread.
   PipeMessagePack data;
