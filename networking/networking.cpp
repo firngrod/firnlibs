@@ -291,10 +291,10 @@ bool Networking::HandleClient(const pollfd &pfd, const ClientState &cState)
   fwdStruct->client = (Client *)cState.state;
 
   // Now receive while there is data on the socket.
-  size_t recieved = 0;
-  while(recieved < readyData)
+  size_t received = 0;
+  while(received < readyData)
   {
-    recieved += read(pfd.fd, &fwdStruct->message[recieved], readyData - recieved);
+    received += read(pfd.fd, &fwdStruct->message[received], readyData - received);
   }
 
   msgThreadpool.Push(cState.callback, fwdStruct);
