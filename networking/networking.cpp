@@ -128,10 +128,10 @@ void Networking::PollDancer()
         // Add the listener to the list of listeners.
         ListenerState &lState = listeners[lItr.fd];
         lState.addr = (*(sockaddr_in*)lItr.pAddr);
-        lState.callback = (void (*)(Listener::AcceptState*))lItr.callback;
-        lState.state = lItr.state;
+        lState.callback = *((std::function<void (const std::shared_ptr<Client> &)> *)lItr.pCallback);
         lState.identifier = lItr.identifier;
         delete (sockaddr_in *)lItr.pAddr;
+        delete (std::function<void (const std::shared_ptr<Client> &)> *)lItr.pCallback;
 
         // Actually listen
         listen(lItr.fd, 10);
@@ -144,8 +144,8 @@ void Networking::PollDancer()
       {
         clients[lItr.fd] = ClientState();
         clients[lItr.fd].addr = *((sockaddr *)lItr.pAddr);
-        clients[lItr.fd].state = lItr.state;
-        clients[lItr.fd].callback = lItr.callback;
+        clients[lItr.fd].callback = *((std::function<void (const std::vector<unsigned char> &)> *)lItr.pCallback);
+        delete (std::function<void (const std::vector<unsigned char> &)> *)lItr.pCallback;
         delete (sockaddr *)lItr.pAddr;
         continue;
       }
@@ -241,23 +241,16 @@ bool Networking::HandleListener(const pollfd &pfd, const ListenerState &lState)
   {
     // Handle the new client.  This is done by first putting it on hold until the user can specify callback and such.
     // Create a message to send to the user.
-    Listener::AcceptState * acceptState = new Listener::AcceptState();
-    acceptState->asyncState = lState.state;
-    acceptState->client = std::shared_ptr<Client>(new Client());
-    acceptState->client->limboState = new PipeMessagePack;
-    acceptState->client->limboState->identifier = GetIdentifier();
-    acceptState->client->limboState->fd = newfd;
-    acceptState->client->limboState->pAddr = (void *) new sockaddr(clientAddr); // TODO Make sure this is deleted.
+    std::shared_ptr<Client> client = std::shared_ptr<Client>(new Client());
+    client->limboState = new PipeMessagePack;
+    client->limboState->identifier = GetIdentifier();
+    client->limboState->fd = newfd;
+    client->limboState->pAddr = (void *) new sockaddr(clientAddr); // TODO Make sure this is deleted.
 
-    ListenerStagingState * listenerStagingState = new ListenerStagingState();
-    listenerStagingState->state = acceptState;
-    listenerStagingState->callback = lState.callback;
 
-    auto lambda = [listenerStagingState]() -> void 
+    auto lambda = [lState, client]() -> void 
     {
-      listenerStagingState->callback(listenerStagingState->state);
-      delete listenerStagingState->state;
-      delete listenerStagingState;
+      lState.callback(client);
     };
 
     msgThreadpool.Push(lambda);
@@ -285,23 +278,21 @@ bool Networking::HandleClient(const pollfd &pfd, const ClientState &cState)
   ClientState &state = clients[pfd.fd];
 
   // Receive the data.  First make room in the state data vector
-  Client::MessageForwardStruct * fwdStruct = new Client::MessageForwardStruct;
-  fwdStruct->message.resize(readyData);
-  fwdStruct->client = (Client *)cState.state;
+  std::vector<unsigned char> message(readyData);
 
   // Now receive while there is data on the socket.
   size_t received = 0;
   while(received < readyData)
   {
-    received += read(pfd.fd, &fwdStruct->message[received], readyData - received);
+    received += read(pfd.fd, &message[received], readyData - received);
   }
 
-  msgThreadpool.Push([fwdStruct, cState](){ cState.callback(fwdStruct); });
+  msgThreadpool.Push([message, cState](){ cState.callback(message); });
 
   return true;
 }
 
-uint64_t Networking::Listen(const int &port, void (*callback)(Listener::AcceptState *), void * callbackState)
+uint64_t Networking::Listen(const int &port, const std::function<void (const std::shared_ptr<Client> &)> &callback)
 {
   if(port == 0)
     return -1;
@@ -328,8 +319,7 @@ uint64_t Networking::Listen(const int &port, void (*callback)(Listener::AcceptSt
   data.msg = ListenerAdd;
   data.fd = sockFd;
   data.pAddr = (void *)lAddr;
-  data.callback = (void (*)(void *))callback;
-  data.state = callbackState;
+  data.pCallback = (void *) new std::function<void (const std::shared_ptr<Client> &)>(callback);
   data.identifier = GetIdentifier();
 
   write(pipe_fds[1], (char *)&data, sizeof(data));

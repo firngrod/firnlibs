@@ -22,12 +22,6 @@
     protected:
       int identifier;
 
-      struct MessageForwardStruct
-      {
-        Client * client;
-        std::vector<unsigned char> message;
-      };
-      
       void HandleIncData(const std::vector<unsigned char> &message);
       PipeMessagePack * limboState;
       friend Networking;

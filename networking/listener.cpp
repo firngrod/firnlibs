@@ -1,7 +1,7 @@
 #include "networking.hpp"
 namespace FirnLibs {
 
-bool Networking::Listener::Listen(const int &port, void (*callback)(AcceptState *), void * asyncState)
+bool Networking::Listener::Listen(const int &port, const std::function<void (const std::shared_ptr<Client> &)> &callback)
 {
   // If this already has an fd, don't overwrite it with a new 
   if(identifier != 0)
@@ -11,7 +11,7 @@ bool Networking::Listener::Listen(const int &port, void (*callback)(AcceptState 
   if(callback == nullptr)
     return false;
 
-  identifier = Networking::GetInstance().Listen(port, callback, asyncState);
+  identifier = Networking::GetInstance().Listen(port, callback);
 
   if(identifier == 0)
     return false;

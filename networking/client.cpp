@@ -35,15 +35,12 @@ bool Networking::Client::Commence(void (*callback)(DataReceivedState *), void *a
   // Notice that we intercept the callback to do buffering and data interc...
   // We do data treatment in this class before signalling the user.
   // For their convenience.  Nothing sinister.
-  auto lambda = [](void * state) -> void 
+  auto lambda = [this](const std::vector<unsigned char> &message) -> void 
   {
-    MessageForwardStruct * pState = (MessageForwardStruct *)state; 
-    pState->client->HandleIncData(pState->message);
-    delete pState;
+    this->HandleIncData(message);
   };
   limboState->msg = ConnectionAdd;
-  limboState->callback = lambda;
-  limboState->state = this;
+  limboState->pCallback = (void *) new std::function<void (const std::vector<unsigned char> &)>(lambda);
   Networking::GetInstance().AddSocket(*limboState);
   
   // Clean up.
@@ -54,7 +51,9 @@ bool Networking::Client::Commence(void (*callback)(DataReceivedState *), void *a
 
 void Networking::Client::HandleIncData(const std::vector<unsigned char> &data)
 {
-  std::cout << "Received data: " << (char *)&data[0];
+  std::vector<unsigned char> data2 = data;
+  data2.push_back('\0');
+  std::cout << "Received data.  Size: " << data.size() << "  Content: " <<  (char *)&data2[0];
 }
 
 

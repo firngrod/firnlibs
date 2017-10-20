@@ -10,12 +10,7 @@
       Listener() { identifier = 0;}
       ~Listener();
 
-      struct AcceptState
-      {
-        void * asyncState;
-        std::shared_ptr<Client> client;
-      };
-      bool Listen(const int &port, void (*callback)(AcceptState *), void * asyncState);
+      bool Listen(const int &port, const std::function<void (const std::shared_ptr<Client> &)> &callback);
       void Stop();
       // Prevent copying to avoid issues with deconstruction;
       Listener(const Listener &) = delete;
