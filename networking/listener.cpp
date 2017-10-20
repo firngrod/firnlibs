@@ -8,7 +8,7 @@ bool Networking::Listener::Listen(const int &port, void (*callback)(AcceptState 
     return false;
 
   // We need a callback.  Not necessarily a state.
-  if(callback == NULL)
+  if(callback == nullptr)
     return false;
 
   identifier = Networking::GetInstance().Listen(port, callback, asyncState);

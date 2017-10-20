@@ -8,12 +8,12 @@ namespace FirnLibs {
 Networking::Client::Client()
 {
   identifier = 0;
-  limboState = NULL;
+  limboState = nullptr;
 }
 
 Networking::Client::~Client()
 {
-  if(limboState != NULL)
+  if(limboState != nullptr)
   {
     close(limboState->fd);
     delete (sockaddr *)limboState->pAddr;
@@ -49,7 +49,7 @@ bool Networking::Client::Commence(void (*callback)(DataReceivedState *), void *a
   // Clean up.
   // NOTICE:  Do not delete the addr.  It will be deleted by the polldancer.
   delete limboState;
-  limboState = NULL;
+  limboState = nullptr;
 }
 
 void Networking::Client::HandleIncData(const std::vector<unsigned char> &data)

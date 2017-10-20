@@ -58,48 +58,41 @@ void Threadpool::SetThreadCount(const size_t &count)
   }
 }
 
-void Threadpool::RunnerFunc(void * params)
+void Threadpool::RunnerFunc(Threadpool::ThreadParams * params)
 {
   // Each thread loops while not told to stop, waiting on a condition variable which will tell it when to run.
-  Threadpool::ThreadParams *tParams = (ThreadParams *)params;
   bool isStopTime = false;
   while (!isStopTime)
   {
-    FunctionParams funcParams;
+    std::function<void()> func;
     // Wait until a message is received.
     // Function block this to not keep the mutex unnecessarily
     {
-      std::unique_lock<std::mutex> lk(*tParams->mutex);
-      tParams->cv->wait(lk, [&tParams]{return *tParams->stopSignal || tParams->queue->CanPop();});
+      std::unique_lock<std::mutex> lk(*params->mutex);
+      params->cv->wait(lk, [&params]{return *params->stopSignal || params->queue->CanPop();});
       // Pop within the mutex, 'cause why not.
-      funcParams = tParams->queue->Pop();
+      func = params->queue->Pop();
     }
     // Sanity check.  It may have been a fluke, or it may have been a stop signal.
-    if(funcParams.Function != NULL)
-    {
-      funcParams.Function(funcParams.paramStructPtr);
-    }
+    if(func != nullptr)
+      func();
     // Notify in case other thread functions are still waiting.
-    tParams->cv->notify_one();
+    params->cv->notify_one();
     // Check if it's time to stop.
-    isStopTime = *tParams->stopSignal;
+    isStopTime = *params->stopSignal;
   }
-  delete tParams->stopSignal;
-  delete tParams;
+  delete params->stopSignal;
+  delete params;
 }
 
-bool Threadpool::Push(void (*Function)(void *), void * params)
+bool Threadpool::Push(std::function<void()> func)
 {
   // Are we trying to wind it down?
   if(finishing.Get())
     return false;
 
-  // Generate a new function package to put on the queue
-  FunctionParams funcParams;
-  funcParams.Function = Function;
-  funcParams.paramStructPtr = params;
   // Push it on the queue.
-  queue.Push(funcParams);
+  queue.Push(func);
   // Notify some thread that there is stuff to do.
   cv.notify_one();
   return true;
@@ -115,6 +108,7 @@ void Threadpool::FinishUp()
 
   std::unique_lock<std::mutex> lk(mutex);
   cv.wait(lk, [this]{return !queue.CanPop();});
+  SetThreadCount(0);
 }
 
 }}

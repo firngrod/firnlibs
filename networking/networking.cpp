@@ -253,15 +253,14 @@ bool Networking::HandleListener(const pollfd &pfd, const ListenerState &lState)
     listenerStagingState->state = acceptState;
     listenerStagingState->callback = lState.callback;
 
-    auto lambda = [](void * state) -> void 
+    auto lambda = [listenerStagingState]() -> void 
     {
-      ListenerStagingState * statePtr = (ListenerStagingState *)state;
-      statePtr->callback(statePtr->state);
-      delete statePtr->state;
-      delete statePtr;
+      listenerStagingState->callback(listenerStagingState->state);
+      delete listenerStagingState->state;
+      delete listenerStagingState;
     };
 
-    msgThreadpool.Push(lambda, (void *)listenerStagingState);
+    msgThreadpool.Push(lambda);
   }
   // At this point, if we have no sockets, we have an error on the listener and it needs to die.
   if(newfd < 0)
@@ -297,7 +296,7 @@ bool Networking::HandleClient(const pollfd &pfd, const ClientState &cState)
     received += read(pfd.fd, &fwdStruct->message[received], readyData - received);
   }
 
-  msgThreadpool.Push(cState.callback, fwdStruct);
+  msgThreadpool.Push([fwdStruct, cState](){ cState.callback(fwdStruct); });
 
   return true;
 }
@@ -357,6 +356,9 @@ void Networking::Cleanup()
 {
   // Close the pipe.  This will be interpreted as a close signal.
   close(pipe_fds[1]);
+
+  // Finish up the queue.
+  msgThreadpool.FinishUp();
   // Wait for the select thread to close.
   selectThread.join();
 }
