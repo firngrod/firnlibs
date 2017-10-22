@@ -19,6 +19,7 @@
         std::vector<unsigned char> reply;
       };
       bool Commence(void (*callback)(DataReceivedState *), void * asyncState);
+      void Send(const std::vector<unsigned char> &data);
     protected:
       int identifier;
 

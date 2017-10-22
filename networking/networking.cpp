@@ -1,9 +1,9 @@
 #include "networking.hpp"
 #include <unistd.h>
 #include <algorithm>
-#include <iostream>
 #include <sys/ioctl.h>
 #include <cstring>
+//#include <iostream>
 
 namespace FirnLibs {
 
@@ -62,11 +62,19 @@ void Networking::PollDancer()
       pfds.back().events = POLLIN;
     }
 
+    // Add the client sockets.
     for(auto cItr: clients)
     {
       pfds.push_back(pollfd());
       pfds.back().fd=cItr.first;
+      // Poll for incoming data.
       pfds.back().events = POLLIN;
+      // If we have data to send, poll for ready to send.
+      // DO NOT poll for this if you don't have data.  It will always be ready to send.
+      if(cItr.second.sendBuf.size() > 0)
+      {
+        pfds.back().events |= POLLOUT;
+      }
     }
 
     // Do the poll
@@ -145,6 +153,7 @@ void Networking::PollDancer()
         clients[lItr.fd] = ClientState();
         clients[lItr.fd].addr = *((sockaddr *)lItr.pAddr);
         clients[lItr.fd].callback = *((std::function<void (const std::vector<unsigned char> &)> *)lItr.pCallback);
+        clients[lItr.fd].identifier = lItr.identifier;
         delete (std::function<void (const std::vector<unsigned char> &)> *)lItr.pCallback;
         delete (sockaddr *)lItr.pAddr;
         continue;
@@ -178,6 +187,19 @@ void Networking::PollDancer()
             clients.erase(itr);
             continue;
           }
+        }
+      }// if(lItr.msg == SocketRemove)
+
+      if(lItr.msg == ConnectionQueueData)
+      {
+        auto cItr = clients.begin();
+        for(auto cEnd = clients.end(); cItr != cEnd; cItr++)
+          if(cItr->second.identifier == lItr.identifier) break;
+
+        if(cItr != clients.end())
+        {
+          cItr->second.sendBuf.insert(cItr->second.sendBuf.end(), lItr.pDataBuf->begin(), lItr.pDataBuf->end());
+          delete lItr.pDataBuf;
         }
       }
     }
@@ -263,31 +285,56 @@ bool Networking::HandleListener(const pollfd &pfd, const ListenerState &lState)
 }
 
 
-bool Networking::HandleClient(const pollfd &pfd, const ClientState &cState)
+bool Networking::HandleClient(const pollfd &pfd, ClientState &cState)
 {
-  int readyData = 0;
-  int rc = ioctl(pfd.fd, FIONREAD, &readyData);
-
-  // If no ready data, the trigger was the socket closing on the other end.
-  if(readyData == 0)
+  // First, see if we have incoming data on the socket.
+  if(pfd.revents & POLLIN)
   {
-    return false;
+    int readyData = 0;
+    int rc = ioctl(pfd.fd, FIONREAD, &readyData);
+
+    // If no ready data, the trigger was the socket closing on the other end.
+    if(readyData == 0)
+    {
+      return false;
+    }
+
+    // Fetch socket state
+    ClientState &state = clients[pfd.fd];
+
+    // Receive the data.  First make room in the state data vector
+    std::vector<unsigned char> message(readyData);
+
+    // Now receive while there is data on the socket.
+    size_t received = 0;
+    while(received < readyData)
+    {
+      received += read(pfd.fd, &message[received], readyData - received);
+    }
+
+    msgThreadpool.Push([message, cState](){ cState.callback(message); });
   }
-
-  // Fetch socket state
-  ClientState &state = clients[pfd.fd];
-
-  // Receive the data.  First make room in the state data vector
-  std::vector<unsigned char> message(readyData);
-
-  // Now receive while there is data on the socket.
-  size_t received = 0;
-  while(received < readyData)
+  
+  // Now see if we are ready to send more data.
+  // There should be no need to check for pending data since we should only have polled for this if there is.
+  if(pfd.revents & POLLOUT)
   {
-    received += read(pfd.fd, &message[received], readyData - received);
-  }
+    // Do send.  Ask it not to block.
+    ssize_t sentData = send(pfd.fd, &cState.sendBuf[0], cState.sendBuf.size(), MSG_DONTWAIT);
+    
+    // Did we have error?
+    if(sentData == -1)
+    {
+      if(errno != EAGAIN || errno != EWOULDBLOCK)
+      {
+        return false;
+      }
+      return true;
+    }
 
-  msgThreadpool.Push([message, cState](){ cState.callback(message); });
+    // We sent some data.  Clear it from the send buffer.
+    cState.sendBuf.erase(cState.sendBuf.begin(), cState.sendBuf.begin() + sentData);
+  }
 
   return true;
 }
@@ -326,7 +373,7 @@ uint64_t Networking::Listen(const int &port, const std::function<void (const std
   return data.identifier;
 }
 
-void Networking::AddSocket(const PipeMessagePack &pack)
+void Networking::SignalSocket(const PipeMessagePack &pack)
 {
   write(pipe_fds[1], (char *)&pack, sizeof(pack));
 }

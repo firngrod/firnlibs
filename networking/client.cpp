@@ -41,7 +41,7 @@ bool Networking::Client::Commence(void (*callback)(DataReceivedState *), void *a
   };
   limboState->msg = ConnectionAdd;
   limboState->pCallback = (void *) new std::function<void (const std::vector<unsigned char> &)>(lambda);
-  Networking::GetInstance().AddSocket(*limboState);
+  Networking::GetInstance().SignalSocket(*limboState);
   
   // Clean up.
   // NOTICE:  Do not delete the addr.  It will be deleted by the polldancer.
@@ -54,8 +54,18 @@ void Networking::Client::HandleIncData(const std::vector<unsigned char> &data)
   std::vector<unsigned char> data2 = data;
   data2.push_back('\0');
   std::cout << "Received data.  Size: " << data.size() << "  Content: " <<  (char *)&data2[0];
+  std::cout << "Echoing the data back to sender.\n";
+  Send(data);
 }
 
+void Networking::Client::Send(const std::vector<unsigned char> &data)
+{
+  PipeMessagePack messagePack;
+  messagePack.identifier = identifier;
+  messagePack.msg = ConnectionQueueData;
+  messagePack.pDataBuf = new std::vector<unsigned char>(data);
 
+  Networking::GetInstance().SignalSocket(messagePack);
+}
 
 }

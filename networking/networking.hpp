@@ -20,6 +20,7 @@ namespace FirnLibs
       SocketRemove, // Uses identifier
       ListenerAdd, // Uses fd, *pAddr, pCallback, identifier.  pCallback refers to an std::function<void (const std::shared_ptr<Client> &)>
       ConnectionAdd, // Uses fd, *pAddr, pCallback, identifier.  pCallback refers to an std::function<void (const std::vector<unsigned char> &)>
+      ConnectionQueueData, // Uses identifier, pDataBuf
     };
     struct PipeMessagePack
     {
@@ -28,6 +29,7 @@ namespace FirnLibs
       void *pAddr;
       void *pCallback; // This is a pointer to an std::function type which is different depending on the message.
       uint64_t identifier = 0;
+      std::vector<unsigned char> * pDataBuf;
     };
 
     // Client stuff
@@ -41,7 +43,7 @@ namespace FirnLibs
     #include "listener.hpp"
   protected:
     uint64_t Listen(const int &port, const std::function<void (const std::shared_ptr<Client> &)> &callback);
-    void AddSocket(const PipeMessagePack &pack);
+    void SignalSocket(const PipeMessagePack &pack);
     friend Listener;
 
 
@@ -75,9 +77,10 @@ namespace FirnLibs
       sockaddr addr;
       std::function<void (const std::vector<unsigned char> &)> callback;
       uint64_t identifier;
+      std::vector<unsigned char> sendBuf;
     };
     std::map<int, ClientState> clients;
-    bool HandleClient(const pollfd &pfd, const ClientState &cState);
+    bool HandleClient(const pollfd &pfd, ClientState &cState);
 
     // Client message handling
     struct MessagePack
