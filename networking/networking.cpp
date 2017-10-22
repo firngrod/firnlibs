@@ -109,6 +109,7 @@ void Networking::PollDancer()
           pipeData.push_back(PipeMessagePack());
           pipeData.back().msg = SocketRemove;
           pipeData.back().identifier = lItr->second.identifier;
+          pipeData.back().errorNo = errno;
         }
         continue;
       }
@@ -123,6 +124,7 @@ void Networking::PollDancer()
           pipeData.push_back(PipeMessagePack());
           pipeData.back().msg = SocketRemove;
           pipeData.back().identifier = cItr->second.identifier;
+          pipeData.back().errorNo = errno;
         }
       }
     }
@@ -137,9 +139,11 @@ void Networking::PollDancer()
         ListenerState &lState = listeners[lItr.fd];
         lState.addr = (*(sockaddr_in*)lItr.pAddr);
         lState.callback = *((std::function<void (const std::shared_ptr<Client> &)> *)lItr.pCallback);
+        lState.errorCallback = *lItr.pErrorCallback;
         lState.identifier = lItr.identifier;
         delete (sockaddr_in *)lItr.pAddr;
         delete (std::function<void (const std::shared_ptr<Client> &)> *)lItr.pCallback;
+        delete lItr.pErrorCallback;
 
         // Actually listen
         listen(lItr.fd, 10);
@@ -153,9 +157,11 @@ void Networking::PollDancer()
         clients[lItr.fd] = ClientState();
         clients[lItr.fd].addr = *((sockaddr *)lItr.pAddr);
         clients[lItr.fd].callback = *((std::function<void (const std::vector<unsigned char> &)> *)lItr.pCallback);
+        clients[lItr.fd].errorCallback = *lItr.pErrorCallback;
         clients[lItr.fd].identifier = lItr.identifier;
         delete (std::function<void (const std::vector<unsigned char> &)> *)lItr.pCallback;
         delete (sockaddr *)lItr.pAddr;
+        delete lItr.pErrorCallback;
         continue;
       }
 
@@ -172,6 +178,13 @@ void Networking::PollDancer()
             
           if(itr != listeners.end())
           {
+            if(itr->second.errorCallback != nullptr)
+            {
+              msgThreadpool.Push([itr, lItr]() -> void
+              {
+                itr->second.errorCallback(lItr.errorNo);
+              });
+            }
             listeners.erase(itr);
             continue;
           }
@@ -184,6 +197,13 @@ void Networking::PollDancer()
 
           if(itr != clients.end())
           {
+            if(itr->second.errorCallback != nullptr)
+            {
+              msgThreadpool.Push([itr, lItr]() -> void
+              {
+                itr->second.errorCallback(lItr.errorNo);
+              });
+            }
             clients.erase(itr);
             continue;
           }
@@ -299,9 +319,6 @@ bool Networking::HandleClient(const pollfd &pfd, ClientState &cState)
       return false;
     }
 
-    // Fetch socket state
-    ClientState &state = clients[pfd.fd];
-
     // Receive the data.  First make room in the state data vector
     std::vector<unsigned char> message(readyData);
 
@@ -339,7 +356,8 @@ bool Networking::HandleClient(const pollfd &pfd, ClientState &cState)
   return true;
 }
 
-uint64_t Networking::Listen(const int &port, const std::function<void (const std::shared_ptr<Client> &)> &callback)
+uint64_t Networking::Listen(const int &port, const std::function<void (const std::shared_ptr<Client> &)> &callback,
+                            const std::function<void (const int &)> &errorCallback)
 {
   if(port == 0)
     return -1;
@@ -367,6 +385,7 @@ uint64_t Networking::Listen(const int &port, const std::function<void (const std
   data.fd = sockFd;
   data.pAddr = (void *)lAddr;
   data.pCallback = (void *) new std::function<void (const std::shared_ptr<Client> &)>(callback);
+  data.pErrorCallback = new std::function<void (const int &)>(errorCallback);
   data.identifier = GetIdentifier();
 
   write(pipe_fds[1], (char *)&data, sizeof(data));

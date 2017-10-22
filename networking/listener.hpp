@@ -7,16 +7,27 @@
     class Listener
     {
     public:
-      Listener() { identifier = 0;}
+      Listener();
       ~Listener();
 
-      bool Listen(const int &port, const std::function<void (const std::shared_ptr<Client> &)> &callback);
+      bool Listen(const int &port, const std::function<void (const std::shared_ptr<Client> &)> &callback,
+                  const std::function<void (const int &)> &errorCallback = nullptr);
       void Stop();
       // Prevent copying to avoid issues with deconstruction;
       Listener(const Listener &) = delete;
       void operator=(const Listener &) = delete;
     protected:
-      int identifier;
+
+      // Our own callback functions.
+      void ErrorCallback(const int &errorNo);
+      void Callback(const std::shared_ptr<Client> &client);
+
+      // Callback functions from outside.
+      std::function<void (const std::shared_ptr<Client> &client)> callback;
+      std::function<void (const int &)> errorCallback;
+
+      int errorNo;
+      unsigned int identifier;
       friend Networking;
     };
 

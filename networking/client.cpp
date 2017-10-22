@@ -9,6 +9,7 @@ Networking::Client::Client()
 {
   identifier = 0;
   limboState = nullptr;
+  errorNo = 0;
 }
 
 Networking::Client::~Client()
@@ -26,10 +27,19 @@ Networking::Client::~Client()
   }
 }
 
-bool Networking::Client::Commence(void (*callback)(DataReceivedState *), void *asyncState)
+bool Networking::Client::Commence(const std::function<void (const std::vector<unsigned char> &)> callback,
+                                  const std::function<void (const int &)> errorCallback)
 {
+  // Sanity check
+  //if(callback == nullptr)
+    //return false;
+
   // Save the identifier.
   identifier = limboState->identifier;
+
+  // Save the callbacks.
+  this->callback = callback;
+  this->errorCallback = errorCallback;
 
   // Message the socket to the polldancer
   // Notice that we intercept the callback to do buffering and data interc...
@@ -39,8 +49,13 @@ bool Networking::Client::Commence(void (*callback)(DataReceivedState *), void *a
   {
     this->HandleIncData(message);
   };
+  auto errorLambda = [this](const int &errorNo) -> void
+  {
+    this->ErrorCallback(errorNo);
+  };
   limboState->msg = ConnectionAdd;
   limboState->pCallback = (void *) new std::function<void (const std::vector<unsigned char> &)>(lambda);
+  limboState->pErrorCallback = new std::function<void (const int &)>(errorLambda);
   Networking::GetInstance().SignalSocket(*limboState);
   
   // Clean up.
@@ -58,6 +73,17 @@ void Networking::Client::HandleIncData(const std::vector<unsigned char> &data)
   Send(data);
 }
 
+void Networking::Client::ErrorCallback(const int &errorNo)
+{
+  // If this has been called, something is wrong.
+  this->errorNo = errorNo;
+  this->identifier = identifier;
+
+  // If they gave us a callback method, relay
+  if(errorCallback != nullptr)
+    errorCallback(errorNo);
+}
+
 void Networking::Client::Send(const std::vector<unsigned char> &data)
 {
   PipeMessagePack messagePack;
@@ -67,5 +93,6 @@ void Networking::Client::Send(const std::vector<unsigned char> &data)
 
   Networking::GetInstance().SignalSocket(messagePack);
 }
+
 
 }
