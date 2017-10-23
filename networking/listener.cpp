@@ -21,7 +21,9 @@ bool Networking::Listener::Listen(const int &port, const std::function<void (con
     return false;
 
   this->callback = callback;
+  this->errorCallback = errorCallback;
    
+  // This is unsafe for now.  This could be deconstructed before the lambda gets called.
   auto lambda = [this](const std::shared_ptr<Client> &client) -> void
   {
     this->Callback(client);

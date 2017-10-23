@@ -47,6 +47,7 @@ bool Networking::Client::Commence(const std::function<void (const std::vector<un
   // For their convenience.  Nothing sinister.
   auto lambda = [this](const std::vector<unsigned char> &message) -> void 
   {
+    // This is unsafe for now.  This could be deconstructed by the time the lambda gets called.
     this->HandleIncData(message);
   };
   auto errorLambda = [this](const int &errorNo) -> void
