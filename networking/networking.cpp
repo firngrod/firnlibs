@@ -320,7 +320,7 @@ bool Networking::HandleClient(const pollfd &pfd, ClientState &cState)
     }
 
     // Receive the data.  First make room in the state data vector
-    std::vector<unsigned char> *message = new std::Vector<unsigned char>(readyData);
+    std::vector<unsigned char> *message = new std::vector<unsigned char>(readyData);
 
     // Now receive while there is data on the socket.
     size_t received = 0;
