@@ -5,7 +5,8 @@
 namespace FirnLibs {
 
 
-Networking::Client::Client()
+Networking::Client::Client() :
+sharedThis(new FirnLibs::Threading::GuardedVar<Client *>(this))
 {
   identifier = 0;
   limboState = nullptr;
@@ -14,6 +15,10 @@ Networking::Client::Client()
 
 Networking::Client::~Client()
 {
+  {
+    auto token = sharedThis->Get();
+    token = nullptr;
+  }
   if(limboState != nullptr)
   {
     close(limboState->fd);
@@ -45,18 +50,38 @@ bool Networking::Client::Commence(const std::function<void (const std::vector<un
   // Notice that we intercept the callback to do buffering and data interc...
   // We do data treatment in this class before signalling the user.
   // For their convenience.  Nothing sinister.
-  auto lambda = [this](const std::vector<unsigned char> &message) -> void 
+  auto sharedCpy = new std::shared_ptr<FirnLibs::Threading::GuardedVar<Client *> >(sharedThis);
+  auto lambda = [sharedCpy](const std::vector<unsigned char> &message) -> void 
   {
-    // This is unsafe for now.  This could be deconstructed by the time the lambda gets called.
-    this->HandleIncData(message);
+    auto token = (*sharedCpy)->Get();
+    if((Client *)token != nullptr)
+      ((Client *)token)->HandleIncData(message);
   };
-  auto errorLambda = [this](const int &errorNo) -> void
+
+  auto errorLambda = [sharedCpy](const int &errorNo) -> void
   {
-    this->ErrorCallback(errorNo);
+    auto token = (*sharedCpy)->Get();
+    if((Client *)token != nullptr)
+    {
+      ((Client *)token)->ErrorCallback(errorNo);
+    }
   };
+
+  auto cleanupLambda = [sharedCpy]() -> void
+  {
+    // When this reaches the front of the queue, all callbacks on this class are either done or in progress.
+    // If we wait until we can lock, we should be good.
+    // This may still be capable of breakage if two threads start "simultaneously" and the other one gets the lock first.
+    {
+      auto token = (*sharedCpy)->Get();
+    }
+    delete sharedCpy;
+  };
+    
   limboState->msg = ConnectionAdd;
   limboState->pCallback = (void *) new std::function<void (const std::vector<unsigned char> &)>(lambda);
   limboState->pErrorCallback = new std::function<void (const int &)>(errorLambda);
+  limboState->pCleanupCallback = new std::function<void ()>(cleanupLambda);
   Networking::GetInstance().SignalSocket(*limboState);
   
   // Clean up.
@@ -87,6 +112,7 @@ void Networking::Client::ErrorCallback(const int &errorNo)
 
 void Networking::Client::Send(const std::vector<unsigned char> &data)
 {
+  auto lock = sharedThis->Get();
   PipeMessagePack messagePack;
   messagePack.identifier = identifier;
   messagePack.msg = ConnectionQueueData;

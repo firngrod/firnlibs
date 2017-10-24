@@ -18,10 +18,10 @@ namespace FirnLibs
         TT Copy() const { return child; }
         TT &Copy(TT& out) const { return out = child; }
       private:
-        Token(TT &input, std::mutex &mute) : child(input), mut(mute) {lock = std::unique_lock<std::mutex>(mut);};
+        Token(TT &input, std::recursive_mutex &mute) : child(input), mut(mute) {lock = std::unique_lock<std::recursive_mutex>(mut);};
         TT &child;
-        std::mutex &mut;
-        std::unique_lock<std::mutex> lock;
+        std::recursive_mutex &mut;
+        std::unique_lock<std::recursive_mutex> lock;
       };
 
       GuardedVar(const T &input = T()) { child = input; }
@@ -31,7 +31,7 @@ namespace FirnLibs
 
     private:
       T child;
-      std::mutex mut;
+      std::recursive_mutex mut;
     };
   }
 }

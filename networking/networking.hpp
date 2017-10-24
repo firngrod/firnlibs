@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include "../threading/threadpool.hpp"
+#include "../threading/guardedvar.hpp"
 #include <map>
 
 namespace FirnLibs
@@ -18,8 +19,13 @@ namespace FirnLibs
     enum PipeMessage
     {
       SocketRemove, // Uses identifier, errorNo
-      ListenerAdd, // Uses fd, *pAddr, pCallback, identifier.  pCallback refers to an std::function<void (const std::shared_ptr<Client> &)>
-      ConnectionAdd, // Uses fd, *pAddr, pCallback, identifier.  pCallback refers to an std::function<void (const std::vector<unsigned char> &)>
+
+      ListenerAdd, // Uses fd, *pAddr, pCallback, pErrorCallback, pCleanupCallback, identifier. 
+                   // pCallback refers to an std::function<void (const std::shared_ptr<Client> &)>
+
+      ConnectionAdd, // Uses fd, *pAddr, pCallback, pErrorCallback, pCleanupCallback, identifier.
+                     // pCallback refers to an std::function<void (const std::vector<unsigned char> &)>
+
       ConnectionQueueData, // Uses identifier, pDataBuf
     };
     struct PipeMessagePack
@@ -29,6 +35,7 @@ namespace FirnLibs
       void *pAddr;
       void *pCallback; // This is a pointer to an std::function type which is different depending on the message.
       std::function<void (const int &)> *pErrorCallback;
+      std::function<void ()> *pCleanupCallback;
       uint64_t identifier = 0;
       std::vector<unsigned char> * pDataBuf;
       int errorNo = 0;
@@ -45,7 +52,7 @@ namespace FirnLibs
     #include "listener.hpp"
   protected:
     uint64_t Listen(const int &port, const std::function<void (const std::shared_ptr<Client> &)> &callback,
-                    const std::function<void (const int &)> &errorCallback);
+                    const std::function<void (const int &)> &errorCallback, const std::function<void ()> &cleanupCallback);
     void SignalSocket(const PipeMessagePack &pack);
     friend Listener;
 
@@ -69,6 +76,7 @@ namespace FirnLibs
     {
       std::function<void (const std::shared_ptr<Client> &)> callback;
       std::function<void (const int &)> errorCallback;
+      std::function<void ()> cleanupCallback;
       sockaddr_in addr;
       uint64_t identifier;
     };
@@ -81,6 +89,7 @@ namespace FirnLibs
       sockaddr addr;
       std::function<void (const std::vector<unsigned char> &)> callback;
       std::function<void (const int &)> errorCallback;
+      std::function<void ()> cleanupCallback;
       uint64_t identifier;
       std::vector<unsigned char> sendBuf;
     };

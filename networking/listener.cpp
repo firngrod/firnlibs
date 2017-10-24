@@ -3,11 +3,23 @@
 
 namespace FirnLibs {
 
-Networking::Listener::Listener()
+Networking::Listener::Listener() :
+sharedThis(new FirnLibs::Threading::GuardedVar<Listener *>(this))
 {
   identifier = 0;
   errorNo = 0;
 }
+
+
+Networking::Listener::~Listener()
+{
+  {
+    auto token = sharedThis->Get();
+    token = nullptr;
+  }
+  Stop();
+}
+
 
 bool Networking::Listener::Listen(const int &port, const std::function<void (const std::shared_ptr<Client> &)> &callback,
                                   const std::function<void (const int &)> &errorCallback)
@@ -23,16 +35,32 @@ bool Networking::Listener::Listen(const int &port, const std::function<void (con
   this->callback = callback;
   this->errorCallback = errorCallback;
    
-  // This is unsafe for now.  This could be deconstructed before the lambda gets called.
-  auto lambda = [this](const std::shared_ptr<Client> &client) -> void
+  auto sharedCpy = new std::shared_ptr<FirnLibs::Threading::GuardedVar<Listener *> >(sharedThis);
+
+  auto lambda = [sharedCpy](const std::shared_ptr<Client> &client) -> void
   {
-    this->Callback(client);
+    auto token = (*sharedCpy)->Get();
+    if((Listener *)token != nullptr)
+      ((Listener *)token)->Callback(client);
   };
-  auto errorLambda = [this](const int &errorNo) -> void
+  auto errorLambda = [sharedCpy](const int &errorNo) -> void
   {
-    this->ErrorCallback(errorNo);
+    auto token = (*sharedCpy)->Get();
+    if((Listener *)token != nullptr)
+      ((Listener *)token)->ErrorCallback(errorNo);
   };
-  identifier = Networking::GetInstance().Listen(port, lambda, errorLambda);
+  auto cleanupLambda = [sharedCpy]() -> void
+  {
+    // When this reaches the front of the queue, all callbacks on this class are either done or in progress.
+    // If we wait until we can lock, we should be good.
+    // This may still be capable of breakage if two threads start "simultaneously" and the other one gets the lock first.
+    {
+      auto token = (*sharedCpy)->Get();
+    }
+    delete sharedCpy;
+  };
+
+  identifier = Networking::GetInstance().Listen(port, lambda, errorLambda, cleanupLambda);
 
   if(identifier == 0)
     return false;
@@ -41,21 +69,19 @@ bool Networking::Listener::Listen(const int &port, const std::function<void (con
 }
 
 
-Networking::Listener::~Listener()
-{
-  Stop();
-}
-
 void Networking::Listener::Stop()
 {
+  auto token = sharedThis->Get();
   Networking::GetInstance().SignalCloseSocket(identifier);
   identifier = 0;
 }
+
 
 void Networking::Listener::Callback(const std::shared_ptr<Client> &client)
 {
   callback(client);
 }
+
 
 void Networking::Listener::ErrorCallback(const int &errorNo)
 {

@@ -140,10 +140,12 @@ void Networking::PollDancer()
         lState.addr = (*(sockaddr_in*)lItr.pAddr);
         lState.callback = *((std::function<void (const std::shared_ptr<Client> &)> *)lItr.pCallback);
         lState.errorCallback = *lItr.pErrorCallback;
+        lState.cleanupCallback = *lItr.pCleanupCallback;
         lState.identifier = lItr.identifier;
         delete (sockaddr_in *)lItr.pAddr;
         delete (std::function<void (const std::shared_ptr<Client> &)> *)lItr.pCallback;
         delete lItr.pErrorCallback;
+        delete lItr.pCleanupCallback;
 
         // Actually listen
         listen(lItr.fd, 10);
@@ -154,14 +156,16 @@ void Networking::PollDancer()
       // Add new clients;
       if(lItr.msg == ConnectionAdd)
       {
-        clients[lItr.fd] = ClientState();
-        clients[lItr.fd].addr = *((sockaddr *)lItr.pAddr);
-        clients[lItr.fd].callback = *((std::function<void (const std::vector<unsigned char> &)> *)lItr.pCallback);
-        clients[lItr.fd].errorCallback = *lItr.pErrorCallback;
-        clients[lItr.fd].identifier = lItr.identifier;
+        ClientState &cState = clients[lItr.fd] = ClientState();
+        cState.addr = *((sockaddr *)lItr.pAddr);
+        cState.callback = *((std::function<void (const std::vector<unsigned char> &)> *)lItr.pCallback);
+        cState.errorCallback = *lItr.pErrorCallback;
+        cState.cleanupCallback = *lItr.pCleanupCallback;
+        cState.identifier = lItr.identifier;
         delete (std::function<void (const std::vector<unsigned char> &)> *)lItr.pCallback;
         delete (sockaddr *)lItr.pAddr;
         delete lItr.pErrorCallback;
+        delete lItr.pCleanupCallback;
         continue;
       }
 
@@ -184,6 +188,7 @@ void Networking::PollDancer()
               {
                 itr->second.errorCallback(lItr.errorNo);
               });
+              msgThreadpool.Push(itr->second.cleanupCallback);
             }
             listeners.erase(itr);
             continue;
@@ -203,6 +208,7 @@ void Networking::PollDancer()
               {
                 itr->second.errorCallback(lItr.errorNo);
               });
+              msgThreadpool.Push(itr->second.cleanupCallback);
             }
             clients.erase(itr);
             continue;
@@ -228,10 +234,16 @@ void Networking::PollDancer()
   // At this point, we need to clean up in general.  Loop everything we know and close it.
   close(pipe_fds[0]);
   for(auto itr: listeners)
+  {
     close(itr.first);
+    itr.second.cleanupCallback();
+  }
 
   for(auto itr: clients)
+  {
     close(itr.first);
+    itr.second.cleanupCallback();
+  }
 
   listeners.clear();
   clients.clear();
@@ -361,7 +373,7 @@ bool Networking::HandleClient(const pollfd &pfd, ClientState &cState)
 }
 
 uint64_t Networking::Listen(const int &port, const std::function<void (const std::shared_ptr<Client> &)> &callback,
-                            const std::function<void (const int &)> &errorCallback)
+                            const std::function<void (const int &)> &errorCallback, const std::function<void ()> &cleanupCallback)
 {
   if(port == 0)
     return -1;
@@ -390,6 +402,7 @@ uint64_t Networking::Listen(const int &port, const std::function<void (const std
   data.pAddr = (void *)lAddr;
   data.pCallback = (void *) new std::function<void (const std::shared_ptr<Client> &)>(callback);
   data.pErrorCallback = new std::function<void (const int &)>(errorCallback);
+  data.pCleanupCallback = new std::function<void ()>(cleanupCallback);
   data.identifier = GetIdentifier();
 
   write(pipe_fds[1], (char *)&data, sizeof(data));
