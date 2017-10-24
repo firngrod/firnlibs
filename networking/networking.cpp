@@ -219,8 +219,8 @@ void Networking::PollDancer()
         if(cItr != clients.end())
         {
           cItr->second.sendBuf.insert(cItr->second.sendBuf.end(), lItr.pDataBuf->begin(), lItr.pDataBuf->end());
-          delete lItr.pDataBuf;
         }
+        delete lItr.pDataBuf;
       }
     }
   } // End master select loop while(!cleanup)
@@ -320,16 +320,20 @@ bool Networking::HandleClient(const pollfd &pfd, ClientState &cState)
     }
 
     // Receive the data.  First make room in the state data vector
-    std::vector<unsigned char> message(readyData);
+    std::vector<unsigned char> *message = new std::Vector<unsigned char>(readyData);
 
     // Now receive while there is data on the socket.
     size_t received = 0;
     while(received < readyData)
     {
-      received += read(pfd.fd, &message[received], readyData - received);
+      received += read(pfd.fd, &(*message)[received], readyData - received);
     }
 
-    msgThreadpool.Push([message, cState](){ cState.callback(message); });
+    msgThreadpool.Push([message, cState]()
+    { 
+      cState.callback(*message);
+      delete message;
+    });
   }
   
   // Now see if we are ready to send more data.
