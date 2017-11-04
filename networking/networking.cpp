@@ -381,7 +381,6 @@ uint64_t Networking::ConnectTCP(const int &port, const std::string &address, con
   if(port < 0 || port > 0xFFFFFFFF)
     return 0;
 
-
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   if(fd < 0)
     return 0;
@@ -391,12 +390,14 @@ uint64_t Networking::ConnectTCP(const int &port, const std::string &address, con
     return 0;
 
   sockaddr_in *sAddr = new sockaddr_in();
-  memset(&sAddr, 0, sizeof(sockaddr_in));
+  bzero((char *)sAddr, sizeof(*sAddr));
   sAddr->sin_family = AF_INET;
-  bcopy((char *)server->h_addr, (char *)&sAddr->sin_addr.s_addr, server->h_length);
-  delete server;
+  bcopy((char *)server->h_addr,
+        (char *)&sAddr->sin_addr.s_addr,
+        server->h_length);
+  sAddr->sin_port = htons(port);
 
-  if(connect(fd, (sockaddr *)sAddr, sizeof(sAddr)) < 0)
+  if(connect(fd, (sockaddr *)sAddr, sizeof(*sAddr)) < 0)
   {
     delete sAddr;
     return 0;
