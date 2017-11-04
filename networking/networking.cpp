@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <sys/ioctl.h>
 #include <cstring>
+#include <netdb.h>
+
 //#include <iostream>
 
 namespace FirnLibs {
@@ -299,7 +301,7 @@ bool Networking::HandleListener(const pollfd &pfd, const ListenerState &lState)
     client->limboState = new PipeMessagePack;
     client->limboState->identifier = GetIdentifier();
     client->limboState->fd = newfd;
-    client->limboState->pAddr = (void *) new sockaddr(clientAddr); // TODO Make sure this is deleted.
+    client->limboState->pAddr = (void *) new sockaddr(clientAddr);
 
 
     auto lambda = [lState, client]() -> void 
@@ -372,16 +374,58 @@ bool Networking::HandleClient(const pollfd &pfd, ClientState &cState)
   return true;
 }
 
+uint64_t Networking::ConnectTCP(const int &port, const std::string &address, const std::string &localAddress, 
+                        const std::function<void (const std::vector<unsigned char> &)> &callback,
+                        const std::function<void (const int &)> &errorCallback, const std::function<void ()> &cleanupCallback)
+{
+  if(port < 0 || port > 0xFFFFFFFF)
+    return 0;
+
+
+  int fd = socket(AF_INET, SOCK_STREAM, 0);
+  if(fd < 0)
+    return 0;
+
+  hostent *server = gethostbyname(address.c_str());
+  if(server == NULL)
+    return 0;
+
+  sockaddr_in *sAddr = new sockaddr_in();
+  memset(&sAddr, 0, sizeof(sockaddr_in));
+  sAddr->sin_family = AF_INET;
+  bcopy((char *)server->h_addr, (char *)&sAddr->sin_addr.s_addr, server->h_length);
+  delete server;
+
+  if(connect(fd, (sockaddr *)sAddr, sizeof(sAddr)) < 0)
+  {
+    delete sAddr;
+    return 0;
+  }
+
+  PipeMessagePack data;
+  data.msg = ConnectionAdd;
+  data.fd = fd;
+  data.pAddr = (void *)sAddr;
+  data.pCallback = (void *) new std::function<void (const std::vector<unsigned char> &)>(callback);
+  data.pErrorCallback = new std::function<void (const int &)>(errorCallback);
+  data.pCleanupCallback = new std::function<void ()>(cleanupCallback);
+  data.identifier = GetIdentifier();
+
+  write(pipe_fds[1], (char *)&data, sizeof(data));
+
+  return data.identifier;
+}
+
 uint64_t Networking::Listen(const int &port, const std::function<void (const std::shared_ptr<Client> &)> &callback,
                             const std::function<void (const int &)> &errorCallback, const std::function<void ()> &cleanupCallback)
 {
   if(port == 0)
-    return -1;
+    return 0;
 
   // Get the fd
   int sockFd = socket(AF_INET, SOCK_STREAM, 0);
   if(sockFd < 0)
-    return -1;
+    return 0;
 
   // Bind the socket.
   sockaddr_in *lAddr = new sockaddr_in();
@@ -392,7 +436,7 @@ uint64_t Networking::Listen(const int &port, const std::function<void (const std
   if(bind(sockFd, (sockaddr *)lAddr, sizeof(sockaddr)) < 0)
   {
     delete lAddr;
-    return -1;
+    return 0;
   }
 
   // Message the listener to the select thread.
@@ -407,6 +451,11 @@ uint64_t Networking::Listen(const int &port, const std::function<void (const std
 
   write(pipe_fds[1], (char *)&data, sizeof(data));
   return data.identifier;
+}
+
+std::shared_ptr<Networking::Client> Networking::NewClient()
+{
+  return std::shared_ptr<Client>(new Client());
 }
 
 void Networking::SignalSocket(const PipeMessagePack &pack)

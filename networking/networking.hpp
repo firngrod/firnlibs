@@ -23,7 +23,7 @@ namespace FirnLibs
       ListenerAdd, // Uses fd, *pAddr, pCallback, pErrorCallback, pCleanupCallback, identifier. 
                    // pCallback refers to an std::function<void (const std::shared_ptr<Client> &)>
 
-      ConnectionAdd, // Uses fd, *pAddr, pCallback, pErrorCallback, pCleanupCallback, identifier.
+      ConnectionAdd, // Uses fd, pAddr, pCallback, pErrorCallback, pCleanupCallback, identifier.
                      // pCallback refers to an std::function<void (const std::vector<unsigned char> &)>
 
       ConnectionQueueData, // Uses identifier, pDataBuf
@@ -44,8 +44,12 @@ namespace FirnLibs
     // Client stuff
   public:
     #include "client.hpp"
+    static std::shared_ptr<Client> NewClient();
   protected:
     friend Client;
+    uint64_t ConnectTCP(const int &port, const std::string &address, const std::string &localAddress, 
+                        const std::function<void (const std::vector<unsigned char> &)> &callback,
+                        const std::function<void (const int &)> &errorCallback, const std::function<void ()> &cleanupCallback);
 
     // Listening stuff
   public:

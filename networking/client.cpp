@@ -121,5 +121,57 @@ void Networking::Client::Send(const std::vector<unsigned char> &data)
   Networking::GetInstance().SignalSocket(messagePack);
 }
 
+bool Networking::Client::Connect(const int &port, const std::string &address, const std::string &localAddress,
+                                 const std::function<void (const std::vector<unsigned char> &)> &callback,
+                                 const std::function<void (const int &)> &errorCallback)
+{
+  auto lock = sharedThis->Get();
+  if(identifier != 0)
+    return false;
+
+  // Message the socket to the polldancer
+  // Notice that we intercept the callback to do buffering and data interc...
+  // We do data treatment in this class before signalling the user.
+  // For their convenience.  Nothing sinister.
+  auto sharedCpy = new std::shared_ptr<FirnLibs::Threading::GuardedVar<Client *> >(sharedThis);
+  auto lambda = [sharedCpy](const std::vector<unsigned char> &message) -> void 
+  {
+    auto token = (*sharedCpy)->Get();
+    if((Client *)token != nullptr)
+      ((Client *)token)->HandleIncData(message);
+  };
+
+  auto errorLambda = [sharedCpy](const int &errorNo) -> void
+  {
+    auto token = (*sharedCpy)->Get();
+    if((Client *)token != nullptr)
+    {
+      ((Client *)token)->ErrorCallback(errorNo);
+    }
+  };
+
+  auto cleanupLambda = [sharedCpy]() -> void
+  {
+    // When this reaches the front of the queue, all callbacks on this class are either done or in progress.
+    // If we wait until we can lock, we should be good.
+    // This may still be capable of breakage if two threads start "simultaneously" and the other one gets the lock first.
+    {
+      auto token = (*sharedCpy)->Get();
+    }
+    delete sharedCpy;
+  };
+    
+  identifier = Networking::GetInstance().ConnectTCP(port, address, localAddress, callback, errorCallback, cleanupLambda);
+
+  if(identifier == 0)
+    return false;
+
+  this->callback = callback;
+  this->errorCallback = errorCallback;
+
+  return true;
+}
+
+
 
 }

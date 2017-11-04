@@ -18,8 +18,13 @@
         std::vector<unsigned char> message;
         std::vector<unsigned char> reply;
       };
+      bool Connect(const int &port, const std::string &address, const std::string &localAddress,
+                   const std::function<void (const std::vector<unsigned char> &)> &callback,
+                   const std::function<void (const int &)> &errorCallback);
+
       bool Commence(const std::function<void (const std::vector<unsigned char> &)> callback,
                     const std::function<void (const int &)> errorCallback = nullptr);
+
       void Send(const std::vector<unsigned char> &data);
     protected:
       int identifier;
