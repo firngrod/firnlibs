@@ -44,7 +44,7 @@ void ForEachFile(const std::string &root, const std::function<void (std::string 
   // Push the root to the queue and start the scan loop
   directoryQueue.push_back(root);
   while(directoryQueue.size()){
-    // Grap the front of the queue and erase it from the queue
+    // Grab the front of the queue and erase it from the queue
     std::string thisDirectory = *directoryQueue.begin();
     directoryQueue.erase(directoryQueue.begin());
     if((dir = opendir(thisDirectory.c_str())) != NULL) {  // Try to open the directory
@@ -53,8 +53,7 @@ void ForEachFile(const std::string &root, const std::function<void (std::string 
         if(recursive && (ent->d_type == 4 && *ent->d_name != '.'))
           directoryQueue.push_back(FirnLibs::Files::CleanPath(thisDirectory + "/" + ent->d_name));
         else{
-          // If it is not a queue, we look closer at the file.
-          // First, we want to see if it has the .mp3 ending.
+          // If it is not a directory, it's a file, and so we run the callback.
           std::string fileName = FirnLibs::Files::CleanPath(thisDirectory + "/" + ent->d_name);
           callback(fileName);
         }
