@@ -9,7 +9,7 @@ void StringPrintfVA(std::string &output, const std::string &Format, va_list &For
   // I read somewhere that vsnprintf can modify the arglist, so we do a copy for it to play with.
   va_list FormatArguments;
   va_copy(FormatArguments, FormatArgs);
-  int TotalLength = vsnprintf(NULL, 0, Format.c_str(), FormatArguments);
+  int TotalLength = vsnprintf(nullptr, 0, Format.c_str(), FormatArguments);
   va_end(FormatArguments);
   // Now use this info to make a buffer and vsprintf into it, convert it into an std::string, clean up and return
   // the string.

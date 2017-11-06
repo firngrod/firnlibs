@@ -378,7 +378,7 @@ uint64_t Networking::ConnectTCP(const int &port, const std::string &address, con
                         const std::function<void (const std::vector<unsigned char> &)> &callback,
                         const std::function<void (const int &)> &errorCallback, const std::function<void ()> &cleanupCallback)
 {
-  if(port < 0 || port > 0xFFFFFFFF)
+  if(port < 0 || port > 0xFFFF)
     return 0;
 
   int fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -386,7 +386,7 @@ uint64_t Networking::ConnectTCP(const int &port, const std::string &address, con
     return 0;
 
   hostent *server = gethostbyname(address.c_str());
-  if(server == NULL)
+  if(server == nullptr)
     return 0;
 
   sockaddr_in *sAddr = new sockaddr_in();

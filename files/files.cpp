@@ -47,8 +47,8 @@ void ForEachFile(const std::string &root, const std::function<void (std::string 
     // Grab the front of the queue and erase it from the queue
     std::string thisDirectory = *directoryQueue.begin();
     directoryQueue.erase(directoryQueue.begin());
-    if((dir = opendir(thisDirectory.c_str())) != NULL) {  // Try to open the directory
-      while ((ent = readdir(dir)) != NULL) {
+    if((dir = opendir(thisDirectory.c_str())) != nullptr) {  // Try to open the directory
+      while ((ent = readdir(dir)) != nullptr) {
         // First, see if it is a directory.  If so, we add id to the queue for later scans if we are doing recursive
         if(recursive && (ent->d_type == 4 && *ent->d_name != '.'))
           directoryQueue.push_back(FirnLibs::Files::CleanPath(thisDirectory + "/" + ent->d_name));
