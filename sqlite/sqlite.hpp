@@ -18,6 +18,8 @@ namespace FirnLibs
       HasDatabase,
       APIError,
       ParameterCountMismatch,
+      InvalidType,
+      InvalidCallback,
     };
 
 
@@ -25,34 +27,54 @@ namespace FirnLibs
     SQLite(const std::string &dbFile);
     ~SQLite();
 
+    std::string DBFileName() const;
+
     void Cleanup();
 
-    int GetAPIError() { return lastDBError; }
+    int GetAPIError() const { return lastDBError; }
 
     Error LoadDB(const std::string &dbFile);
 
+    // Quick and dirty executes.  Do NOT use user input for this.
     Error UnpreparedExecute(const std::string &statement, const std::function<int (int argc, char **argv, char **argv2)> &callback);
 
 
+    // Prepared executes.
 
+    // First a variable wrapper for all the variable types I have chosen to support.
     class Prepvar
     {
       // Variable holders for prepared statement variables.
       // Variables are copied when the holder is constructed.
-      // Variables will be destroyed either when the Prepvar is destroyed or when the sqlite code is done with it.
-      // Variables cannot be copied, and they are single use only.
     public:
       Prepvar(const std::vector<unsigned char> &data);
-      Prepvar(const double &data);
-      Prepvar(const int &data);
-      Prepvar(const int64_t &data);
-      Prepvar();
-      Prepvar(const std::string &data);
+      Prepvar(const void *data, const int &size);
+      SQLite::Error GetValue(std::vector<unsigned char> &data) const;
 
-      Prepvar &operator=(const Prepvar &) = delete;
-    protected:
+      Prepvar(const double &data);
+      SQLite::Error GetValue(double &data) const;
+
+      Prepvar(const int64_t &data);
+      SQLite::Error GetValue(int64_t &data) const;
+
+      Prepvar(const std::string &data);
+      SQLite::Error GetValue(std::string &data) const;
+
+      Prepvar();
+
+      Prepvar &operator=(const Prepvar &);
       Prepvar(const Prepvar &other);
+
+      void Cleanup();
       ~Prepvar();
+    protected:
+      void FromData(const void *data, const int &size);
+      void FromData(const double &data);
+      void FromData(const int64_t &data);
+      void FromData(const char *data);
+      void FromData();
+
+      void CopyFromOther(const Prepvar &other);
       void * data;
       int size;
       enum Type
@@ -60,15 +82,16 @@ namespace FirnLibs
         Blob,
         Double,
         Int,
-        Int64,
-        Null,
         Text,
+        Null,
       };
       Type type;
       friend SQLite;
     };
     // Prepare a statement and return the identifier for the prepared statement.  -1 means error.
     sqlite3_stmt *Prepare(const std::string &statementStr);
+
+    // Execute a prepared statement.  It will call the callback function for each row returned by the execute.
     void Unprepare(sqlite3_stmt *statement);
     Error PreparedExecute(sqlite3_stmt *statement, std::vector<Prepvar> &vars, 
                                   const std::function<void (const std::vector<Prepvar> &vals, const std::vector<std::string> &columnNames)> &callback);

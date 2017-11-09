@@ -8,7 +8,6 @@ SQLite::SQLite()
 {
   db = nullptr;
   lastDBError = 0;
-  statementCount = 0;
 }
 
 
@@ -16,7 +15,6 @@ SQLite::SQLite(const std::string &dbFile)
 {
   db = nullptr;
   lastDBError = SQLITE_OK;
-  statementCount = 0;
   LoadDB(dbFile);
 }
 
@@ -58,6 +56,12 @@ SQLite::Error SQLite::LoadDB(const std::string &dbFile)
 }
 
 
+std::string SQLite::DBFileName() const
+{
+  return dbFile;
+}
+
+
 int UnpreparedExecuteCallback(void * stdFuncCallback, int argc, char **argv, char **argv2)
 {
   auto *fncPtr = (std::function<int (int argc, char **argv, char **argv2)> *) stdFuncCallback;
@@ -70,6 +74,11 @@ SQLite::Error SQLite::UnpreparedExecute(const std::string &statement, const std:
 {
   if(db == nullptr)
     return Error::NotConnected;
+
+  if(callback == nullptr)
+  {
+    return Error::InvalidCallback;
+  }
 
   char *errorMsg = nullptr;
   void * callbackPtr = (void *) new std::function<int (int argc, char **argv, char **argv2)>(callback);
@@ -110,12 +119,6 @@ void SQLite::Unprepare(sqlite3_stmt *statement)
 }
 
 
-void PreparedExecuteCleanup(void * tmpie)
-{
-  delete [] (unsigned char *)tmpie;
-}
-
-
 SQLite::Error SQLite::PreparedExecute(sqlite3_stmt *statement, std::vector<Prepvar> &vars, 
                                       const std::function<void (const std::vector<Prepvar> &vals, const std::vector<std::string> &columnNames)> &callback)
 {
@@ -123,6 +126,11 @@ SQLite::Error SQLite::PreparedExecute(sqlite3_stmt *statement, std::vector<Prepv
   if(vars.size() != sqlite3_bind_parameter_count(statement))
   {
     return Error::ParameterCountMismatch;
+  }
+
+  if(callback == nullptr)
+  {
+    return Error::InvalidCallback;
   }
 
   // Get the result column names.
@@ -138,23 +146,15 @@ SQLite::Error SQLite::PreparedExecute(sqlite3_stmt *statement, std::vector<Prepv
   {
     if(vars[i].type == Prepvar::Type::Blob)
     {
-      sqlite3_bind_blob(statement, i, (const void *)vars[i].data, vars[i].size, PreparedExecuteCleanup);
-      vars[i].type = Prepvar::Type::Null;
+      sqlite3_bind_blob(statement, i, (const void *)vars[i].data, vars[i].size, SQLITE_TRANSIENT);
     }
     if(vars[i].type == Prepvar::Type::Double)
     {
       sqlite3_bind_double(statement, i, *(const double *)vars[i].data);
-      delete (double *)vars[i].data;
     }
     if(vars[i].type == Prepvar::Type::Int)
     {
-      sqlite3_bind_int(statement, i, *(const int *)vars[i].data);
-      delete (int *)vars[i].data;
-    }
-    if(vars[i].type == Prepvar::Type::Int64)
-    {
       sqlite3_bind_int64(statement, i, *(const int64_t *)vars[i].data);
-      delete (int64_t *)vars[i].data;
     }
     if(vars[i].type == Prepvar::Type::Null)
     {
@@ -162,21 +162,58 @@ SQLite::Error SQLite::PreparedExecute(sqlite3_stmt *statement, std::vector<Prepv
     }
     if(vars[i].type == Prepvar::Type::Text)
     {
-      sqlite3_bind_blob(statement, i, (const char *)vars[i].data, -1, PreparedExecuteCleanup);
-      vars[i].type = Prepvar::Type::Null;
+      sqlite3_bind_blob(statement, i, (const char *)vars[i].data, -1, SQLITE_TRANSIENT);
     }
   }
 
   int status;
+  std::vector<Prepvar> rowContent;
   do
   {
     status = sqlite3_step(statement);
     if(status == SQLITE_ROW)
     {
-      
+      // Get the row data.
+      for(int i = 0; i++; i < colCount)
+      {
+        int colType = sqlite3_column_type(statement, i);
+        if(colType == SQLITE_BLOB)
+        {
+          const void *data = sqlite3_column_blob(statement, i);
+          int size = sqlite3_column_bytes(statement, i);
+          rowContent.push_back(Prepvar(data, size));
+        }
+        else if(colType == SQLITE_FLOAT)
+        {
+          rowContent.push_back(Prepvar(sqlite3_column_double(statement, i)));
+        }
+        else if(colType == SQLITE_INTEGER)
+        {
+          rowContent.push_back(Prepvar((int64_t)sqlite3_column_int64(statement, i)));
+        }
+        else if(colType == SQLITE_TEXT)
+        {
+          rowContent.push_back(Prepvar((const char *)sqlite3_column_text(statement, i)));
+        }
+        else
+        {
+          rowContent.push_back(Prepvar());
+        }
+      }
+      // Do the callback on the row data.
+      callback(rowContent, colNames);
+      // Prepare for the next round
+      rowContent.clear();
     }
-      
   } while(status == SQLITE_ROW);
+
+  // Alright, we are done.  Reset the statement to get the error code if any.
+  lastDBError = sqlite3_reset(statement);
+
+  if(lastDBError != SQLITE_OK)
+  {
+    return Error::APIError;
+  }
 
   return Error::None;
 }
