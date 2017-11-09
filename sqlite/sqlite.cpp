@@ -1,5 +1,6 @@
 #include "sqlite.hpp"
 #include <algorithm>
+#include <iostream>
 
 namespace FirnLibs {
 
@@ -65,7 +66,8 @@ std::string SQLite::DBFileName() const
 int UnpreparedExecuteCallback(void * stdFuncCallback, int argc, char **argv, char **argv2)
 {
   auto *fncPtr = (std::function<int (int argc, char **argv, char **argv2)> *) stdFuncCallback;
-  (*fncPtr)(argc, argv, argv2);
+  if(*fncPtr != nullptr)
+    (*fncPtr)(argc, argv, argv2);
   delete fncPtr;
 }
 
@@ -74,11 +76,6 @@ SQLite::Error SQLite::UnpreparedExecute(const std::string &statement, const std:
 {
   if(db == nullptr)
     return Error::NotConnected;
-
-  if(callback == nullptr)
-  {
-    return Error::InvalidCallback;
-  }
 
   char *errorMsg = nullptr;
   void * callbackPtr = (void *) new std::function<int (int argc, char **argv, char **argv2)>(callback);
@@ -119,7 +116,7 @@ void SQLite::Unprepare(sqlite3_stmt *statement)
 }
 
 
-SQLite::Error SQLite::PreparedExecute(sqlite3_stmt *statement, std::vector<Prepvar> &vars, 
+SQLite::Error SQLite::PreparedExecute(sqlite3_stmt *statement, const std::vector<Prepvar> &vars, 
                                       const std::function<void (const std::vector<Prepvar> &vals, const std::vector<std::string> &columnNames)> &callback)
 {
   // Sanity check.
@@ -128,9 +125,14 @@ SQLite::Error SQLite::PreparedExecute(sqlite3_stmt *statement, std::vector<Prepv
     return Error::ParameterCountMismatch;
   }
 
-  if(callback == nullptr)
+  if(db == nullptr)
   {
-    return Error::InvalidCallback;
+    return Error::NotConnected;
+  }
+
+  if(statement == nullptr)
+  {
+    return NullStatement;
   }
 
   // Get the result column names.
@@ -139,30 +141,31 @@ SQLite::Error SQLite::PreparedExecute(sqlite3_stmt *statement, std::vector<Prepv
   for(int i = 0; i < colCount; i++)
   {
     colNames.push_back(sqlite3_column_name(statement, i));
+    std::cout << "Column name: " << colNames.back() << std::endl;
   }
 
   // Bind the variables.
-  for(int i = 1; i <= vars.size(); i++)
+  for(int i = 0, s = 1; i < vars.size(); i++, s++)
   {
     if(vars[i].type == Prepvar::Type::Blob)
     {
-      sqlite3_bind_blob(statement, i, (const void *)vars[i].data, vars[i].size, SQLITE_TRANSIENT);
+      sqlite3_bind_blob(statement, s, (const void *)vars[i].data, vars[i].size, SQLITE_TRANSIENT);
     }
     if(vars[i].type == Prepvar::Type::Double)
     {
-      sqlite3_bind_double(statement, i, *(const double *)vars[i].data);
+      sqlite3_bind_double(statement, s, *(const double *)vars[i].data);
     }
     if(vars[i].type == Prepvar::Type::Int)
     {
-      sqlite3_bind_int64(statement, i, *(const int64_t *)vars[i].data);
+      sqlite3_bind_int64(statement, s, *(const int64_t *)vars[i].data);
     }
     if(vars[i].type == Prepvar::Type::Null)
     {
-      sqlite3_bind_null(statement, i);
+      sqlite3_bind_null(statement, s);
     }
     if(vars[i].type == Prepvar::Type::Text)
     {
-      sqlite3_bind_blob(statement, i, (const char *)vars[i].data, -1, SQLITE_TRANSIENT);
+      sqlite3_bind_text(statement, s, (const char *)vars[i].data, -1, SQLITE_TRANSIENT);
     }
   }
 
@@ -171,11 +174,15 @@ SQLite::Error SQLite::PreparedExecute(sqlite3_stmt *statement, std::vector<Prepv
   do
   {
     status = sqlite3_step(statement);
+    std::cout << "Stepped.  Status: " << status << std::endl;
     if(status == SQLITE_ROW)
     {
       // Get the row data.
-      for(int i = 0; i++; i < colCount)
+      int iii = 0;
+      for(int i = 0; i < colCount ; i++)
       {
+        if(iii >= 0)
+          iii++;
         int colType = sqlite3_column_type(statement, i);
         if(colType == SQLITE_BLOB)
         {
@@ -201,7 +208,8 @@ SQLite::Error SQLite::PreparedExecute(sqlite3_stmt *statement, std::vector<Prepv
         }
       }
       // Do the callback on the row data.
-      callback(rowContent, colNames);
+      if(callback != nullptr)
+        callback(rowContent, colNames);
       // Prepare for the next round
       rowContent.clear();
     }

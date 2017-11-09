@@ -19,7 +19,7 @@ namespace FirnLibs
       APIError,
       ParameterCountMismatch,
       InvalidType,
-      InvalidCallback,
+      NullStatement,
     };
 
 
@@ -32,6 +32,7 @@ namespace FirnLibs
     void Cleanup();
 
     int GetAPIError() const { return lastDBError; }
+    std::string GetAPIErrorStr() const { return lastDBErrorStr; }
 
     Error LoadDB(const std::string &dbFile);
 
@@ -93,7 +94,7 @@ namespace FirnLibs
 
     // Execute a prepared statement.  It will call the callback function for each row returned by the execute.
     void Unprepare(sqlite3_stmt *statement);
-    Error PreparedExecute(sqlite3_stmt *statement, std::vector<Prepvar> &vars, 
+    Error PreparedExecute(sqlite3_stmt *statement, const std::vector<Prepvar> &vars, 
                                   const std::function<void (const std::vector<Prepvar> &vals, const std::vector<std::string> &columnNames)> &callback);
 
 

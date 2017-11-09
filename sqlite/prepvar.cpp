@@ -5,6 +5,7 @@ namespace FirnLibs{
 
 SQLite::Prepvar::Prepvar(const std::vector<unsigned char> &data)
 {
+  type = Type::Null;
   FromData((const void *)&data[0], size);
 }
 
@@ -37,6 +38,7 @@ SQLite::Error SQLite::Prepvar::GetValue(std::vector<unsigned char> &data) const
 
 SQLite::Prepvar::Prepvar(const double &data)
 {
+  type = Type::Null;
   FromData(data);
 }
 
@@ -60,6 +62,7 @@ SQLite::Error SQLite::Prepvar::GetValue(double &data) const
 
 SQLite::Prepvar::Prepvar(const int64_t &data)
 {
+  type = Type::Null;
   FromData(data);
 }
 
@@ -83,15 +86,16 @@ SQLite::Error SQLite::Prepvar::GetValue(int64_t &data) const
 
 SQLite::Prepvar::Prepvar(const std::string &data)
 {
+  type = Type::Null;
   FromData(data.c_str());
 }
 
 
 void SQLite::Prepvar::FromData(const char *data)
 {
-  this->data = new unsigned char[std::strlen(data) + 1];
-  std::strcpy((char *)this->data, &data[0]);
-  ((char *)this->data)[strlen(data)] = '\0';
+  int otherLen = std::strlen(data);
+  this->data = new char[otherLen + 1];
+  std::strcpy((char *)this->data, data);
   type = Type::Text;
 }
 
@@ -108,6 +112,7 @@ SQLite::Error SQLite::Prepvar::GetValue(std::string &data) const
 
 SQLite::Prepvar::Prepvar()
 {
+  type = Type::Null;
   FromData();
 }
 
@@ -120,6 +125,7 @@ void SQLite::Prepvar::FromData()
 
 SQLite::Prepvar::Prepvar(const Prepvar &other)
 {
+  type = Type::Null;
   CopyFromOther(other);
 }
 
@@ -134,7 +140,7 @@ void SQLite::Prepvar::CopyFromOther(const Prepvar &other)
   else if(other.type == Type::Int)
     FromData(*(int64_t *)other.data);
   else if(other.type == Type::Text)
-    FromData((char *)other.data);
+    FromData((const char *)other.data);
   else if(other.type == Type::Null)
     FromData();
 }
@@ -150,7 +156,7 @@ void SQLite::Prepvar::Cleanup()
   else if(type == Type::Int)
     delete (int64_t *)data;
   else if(type == Type::Text)
-    delete [](unsigned char *)data;
+    delete [](char *)data;
 
   size = 0;
   data = nullptr;

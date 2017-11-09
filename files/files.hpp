@@ -20,5 +20,8 @@ namespace FirnLibs
 
     // Check if a file has a specific extension
     bool HasExtension(const std::string &fileName, const std::string &extension, const bool &caseSensitive = true);
+
+    // Create a folder
+    bool CreateFolder(const std::string &dirPath);
   }
 }

@@ -5,6 +5,7 @@
 #include <json/value.h>
 #include <iostream>
 #include <algorithm>
+#include <boost/filesystem.hpp>
 
 namespace FirnLibs { namespace Files {
 
@@ -88,5 +89,21 @@ bool HasExtension(const std::string &fileName, const std::string &extension, con
 
   return tmpExt == fileExtension;
 }
+
+
+bool CreateFolder(const std::string &dirPath)
+{
+  std::string cleanPath = CleanPath(dirPath);
+  if(!Exists(cleanPath))
+  {
+    boost::filesystem::create_directory(cleanPath);
+    if(!Exists(cleanPath))
+    {
+      return false;
+    }
+  }
+  return true;
+}
+
 
 }}
