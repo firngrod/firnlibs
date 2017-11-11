@@ -68,7 +68,6 @@ int UnpreparedExecuteCallback(void * stdFuncCallback, int argc, char **argv, cha
   auto *fncPtr = (std::function<int (int argc, char **argv, char **argv2)> *) stdFuncCallback;
   if(*fncPtr != nullptr)
     (*fncPtr)(argc, argv, argv2);
-  delete fncPtr;
 }
 
 
@@ -78,8 +77,10 @@ SQLite::Error SQLite::UnpreparedExecute(const std::string &statement, const std:
     return Error::NotConnected;
 
   char *errorMsg = nullptr;
-  void * callbackPtr = (void *) new std::function<int (int argc, char **argv, char **argv2)>(callback);
-  lastDBError = sqlite3_exec(db, statement.c_str(), UnpreparedExecuteCallback, callbackPtr, &errorMsg);
+  auto * callbackPtr = new std::function<int (int argc, char **argv, char **argv2)>(callback);
+  lastDBError = sqlite3_exec(db, statement.c_str(), UnpreparedExecuteCallback, (void *)callbackPtr, &errorMsg);
+  delete callbackPtr;
+
   if(lastDBError != SQLITE_OK)
   {
     lastDBErrorStr = errorMsg;
@@ -141,7 +142,6 @@ SQLite::Error SQLite::PreparedExecute(sqlite3_stmt *statement, const std::vector
   for(int i = 0; i < colCount; i++)
   {
     colNames.push_back(sqlite3_column_name(statement, i));
-    std::cout << "Column name: " << colNames.back() << std::endl;
   }
 
   // Bind the variables.
@@ -174,7 +174,6 @@ SQLite::Error SQLite::PreparedExecute(sqlite3_stmt *statement, const std::vector
   do
   {
     status = sqlite3_step(statement);
-    std::cout << "Stepped.  Status: " << status << std::endl;
     if(status == SQLITE_ROW)
     {
       // Get the row data.

@@ -16,8 +16,12 @@ std::string CleanPath(const std::string &input)
   char * ptr = temp;
   for(std::string::const_iterator itr = input.begin(), end = input.end(); itr != end && *itr != '\0'; itr++)
   {
-    if(*itr == '/' && (*(itr + 1) == '/' || *(itr + 1) == '\0')) // Remove double and trailing /
+    if(*itr == '/' && (((itr + 1) == end) || (*(itr + 1) == '/'))) // Remove double and trailing /
+    {
       itr++;
+      if(itr == end)
+        break;
+    }
     else
       *ptr++ = *itr;
   }
@@ -40,25 +44,29 @@ void ForEachFile(const std::string &root, const std::function<void (std::string 
   DIR *dir;
   struct dirent *ent;
   std::list<std::string> directoryQueue;
-  Json::Value allJson;
 
   // Push the root to the queue and start the scan loop
   directoryQueue.push_back(root);
-  while(directoryQueue.size()){
+  while(directoryQueue.size())
+  {
     // Grab the front of the queue and erase it from the queue
     std::string thisDirectory = *directoryQueue.begin();
     directoryQueue.erase(directoryQueue.begin());
-    if((dir = opendir(thisDirectory.c_str())) != nullptr) {  // Try to open the directory
-      while ((ent = readdir(dir)) != nullptr) {
+    if((dir = opendir(thisDirectory.c_str())) != nullptr) 
+    {  // Try to open the directory
+      while ((ent = readdir(dir)) != nullptr) 
+      {
         // First, see if it is a directory.  If so, we add id to the queue for later scans if we are doing recursive
         if(recursive && (ent->d_type == 4 && *ent->d_name != '.'))
           directoryQueue.push_back(FirnLibs::Files::CleanPath(thisDirectory + "/" + ent->d_name));
-        else{
+        else
+        {
           // If it is not a directory, it's a file, and so we run the callback.
           std::string fileName = FirnLibs::Files::CleanPath(thisDirectory + "/" + ent->d_name);
           callback(fileName);
         }
       }
+      closedir(dir);
     }
   }
 }

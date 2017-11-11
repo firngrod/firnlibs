@@ -17,8 +17,8 @@ bool GetMetadata(Json::Value &metaData, const std::string &fileName)
     for(TagLib::List<TagLib::ID3v2::Frame *>::ConstIterator theitr = tag->frameList().begin(); theitr != tag->frameList().end(); theitr++)
     {
       std::string framevalue = (*theitr)->toString().to8Bit();
-      std::string trigger((*theitr)->frameID().data());
-      trigger = std::string(trigger.begin(), trigger.begin()+4);
+      TagLib::ByteVector tmpie = (*theitr)->frameID();
+      std::string trigger = std::string(tmpie.data(), tmpie.data() + 4);
       metaData[trigger] = framevalue;
     }
   }

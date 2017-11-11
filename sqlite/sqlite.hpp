@@ -91,11 +91,11 @@ namespace FirnLibs
     };
     // Prepare a statement and return the identifier for the prepared statement.  -1 means error.
     sqlite3_stmt *Prepare(const std::string &statementStr);
+    void Unprepare(sqlite3_stmt *statement);
 
     // Execute a prepared statement.  It will call the callback function for each row returned by the execute.
-    void Unprepare(sqlite3_stmt *statement);
-    Error PreparedExecute(sqlite3_stmt *statement, const std::vector<Prepvar> &vars, 
-                                  const std::function<void (const std::vector<Prepvar> &vals, const std::vector<std::string> &columnNames)> &callback);
+    typedef std::function<void (const std::vector<Prepvar> &vals, const std::vector<std::string> &columnNames)> PrepCallback;
+    Error PreparedExecute(sqlite3_stmt *statement, const std::vector<Prepvar> &vars, const PrepCallback &callback);
 
 
     
