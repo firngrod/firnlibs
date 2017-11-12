@@ -92,11 +92,8 @@ bool Networking::Client::Commence(const std::function<void (const std::vector<un
 
 void Networking::Client::HandleIncData(const std::vector<unsigned char> &data)
 {
-  std::vector<unsigned char> data2 = data;
-  data2.push_back('\0');
-  std::cout << "Received data.  Size: " << data.size() << "  Content: " <<  (char *)&data2[0];
-  std::cout << "Echoing the data back to sender.\n";
-  Send(data);
+  if(callback != nullptr)
+    callback(data);
 }
 
 void Networking::Client::ErrorCallback(const int &errorNo)

@@ -93,6 +93,7 @@ namespace FirnLibs
     sqlite3_stmt *Prepare(const std::string &statementStr);
     void Unprepare(sqlite3_stmt *statement);
 
+    typedef std::vector<Prepvar> PrepVector;
     // Execute a prepared statement.  It will call the callback function for each row returned by the execute.
     typedef std::function<void (const std::vector<Prepvar> &vals, const std::vector<std::string> &columnNames)> PrepCallback;
     Error PreparedExecute(sqlite3_stmt *statement, const std::vector<Prepvar> &vars, const PrepCallback &callback);

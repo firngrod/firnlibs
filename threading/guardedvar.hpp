@@ -25,7 +25,8 @@ namespace FirnLibs
         std::unique_lock<std::recursive_mutex> lock;
       };
 
-      GuardedVar(const T &input = T()) { child = input; }
+      GuardedVar() {};
+      GuardedVar(const T &input) { child = input; }
       Token<T> Get() { return Token<T>(child, mut); }
       GuardedVar<T> operator=(const GuardedVar<T> &other) = delete;
       GuardedVar<T> (const GuardedVar<T> &other) = delete;

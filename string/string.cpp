@@ -1,6 +1,8 @@
 #include "string.hpp"
 
 #include <cstdarg>
+#include <algorithm>
+#include <iostream>
 
 void StringPrintfVA(std::string &output, const std::string &Format, va_list &FormatArgs)
 {
@@ -41,6 +43,42 @@ std::string StringPrintf(const std::string &format, ...)
   return returnString;
 }
 
+std::vector<std::string> Split(const std::string &input, const std::string &delimiters, const bool &noEmpty)
+{
+  std::vector<std::string> output;
+  size_t pos = 0, nextDelim;
+  while(pos < input.size())
+  {
+    nextDelim = input.find_first_of(delimiters, pos);
+    std::cout << "Next delim: " << nextDelim << std::endl;
+    if(pos == nextDelim && noEmpty)
+    {
+    }
+    else if(nextDelim == std::string::npos)
+    {
+      output.push_back(input.substr(pos, input.size() - pos));
+      break;
+    }
+    else
+    {
+      output.push_back(input.substr(pos, nextDelim - pos));
+    }
+    pos = nextDelim + 1;
+  }
+  return output;
+}
 
+// I have the option to not ignore case in case it's a user input or something whether to do case.
+bool CmpNoCase(const std::string &first, const std::string &second, const bool &noWaitIWannaDoCaseAnyway)
+{
+  if(noWaitIWannaDoCaseAnyway)
+    return first == second;
+
+  std::string lfirst = first;
+  std::string lsecond = second;
+  std::transform(lfirst.begin(), lfirst.end(), lfirst.begin(), ::tolower);
+  std::transform(lsecond.begin(), lsecond.end(), lsecond.begin(), ::tolower);
+  return lfirst == lsecond;
+}
 
 }}
