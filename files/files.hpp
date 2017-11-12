@@ -13,7 +13,7 @@ namespace FirnLibs
     inline std::string HomePath() { return std::string(getenv("HOME")); }
 
     // Checks if a file exists.
-    inline bool Exists(const std::string filePath);
+    bool Exists(const std::string filePath);
 
     // Iterate through files in a directory and perform a callback on each one.
     void ForEachFile(const std::string &root, const std::function<void (std::string &)> &callback, const bool &recursive = false);
