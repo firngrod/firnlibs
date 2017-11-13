@@ -15,6 +15,11 @@ namespace FirnLibs
     // Checks if a file exists.
     bool Exists(const std::string filePath);
 
+    // Get file timestamps
+    time_t FileModifiedTime(const std::string &filePath);
+    time_t FileAccessTime(const std::string &filePath);
+    time_t FileStatusTime(const std::string &filePath);
+
     // Iterate through files in a directory and perform a callback on each one.
     void ForEachFile(const std::string &root, const std::function<void (std::string &)> &callback, const bool &recursive = false);
 
@@ -23,5 +28,6 @@ namespace FirnLibs
 
     // Create a folder
     bool CreateFolder(const std::string &dirPath);
+
   }
 }

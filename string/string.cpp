@@ -2,7 +2,6 @@
 
 #include <cstdarg>
 #include <algorithm>
-#include <iostream>
 
 void StringPrintfVA(std::string &output, const std::string &Format, va_list &FormatArgs)
 {
@@ -50,7 +49,6 @@ std::vector<std::string> Split(const std::string &input, const std::string &deli
   while(pos < input.size())
   {
     nextDelim = input.find_first_of(delimiters, pos);
-    std::cout << "Next delim: " << nextDelim << std::endl;
     if(pos == nextDelim && noEmpty)
     {
     }

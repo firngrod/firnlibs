@@ -434,6 +434,8 @@ uint64_t Networking::Listen(const int &port, const std::function<void (const std
   lAddr->sin_family = AF_INET;
   lAddr->sin_addr.s_addr = INADDR_ANY;
   lAddr->sin_port = htons(port);
+  int truei=1;
+  setsockopt(sockFd, SOL_SOCKET, SO_REUSEADDR, &truei, sizeof(int));
   if(bind(sockFd, (sockaddr *)lAddr, sizeof(sockaddr)) < 0)
   {
     delete lAddr;

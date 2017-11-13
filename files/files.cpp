@@ -37,6 +37,38 @@ bool Exists(const std::string filePath)
   return (stat (filePath.c_str(), &buffer) == 0);
 }
 
+time_t FileModifiedTime(const std::string &filePath)
+{
+  struct stat buffer;
+  if(stat(filePath.c_str(), &buffer) == 0)
+  {
+    return buffer.st_mtime;
+  }
+  return 0;
+}
+
+
+time_t FileAccessTime(const std::string &filePath)
+{
+  struct stat buffer;
+  if(stat(filePath.c_str(), &buffer) == 0)
+  {
+    return buffer.st_atime;
+  }
+  return 0;
+}
+
+
+time_t FileStatusTime(const std::string &filePath)
+{
+  struct stat buffer;
+  if(stat(filePath.c_str(), &buffer) == 0)
+  {
+    return buffer.st_ctime;
+  }
+  return 0;
+}
+
 
 void ForEachFile(const std::string &root, const std::function<void (std::string &)> &callback, const bool &recursive)
 {

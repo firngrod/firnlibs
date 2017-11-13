@@ -2,6 +2,8 @@
 #include <algorithm>
 #include <taglib/mpegfile.h>
 #include <taglib/id3v2tag.h>
+#include "../files/files.hpp"
+#include "../string/string.hpp"
 
 
 namespace FirnLibs{ namespace Mp3{
@@ -29,6 +31,7 @@ bool GetMetadata(Json::Value &metaData, const std::string &fileName)
   TagLib::MPEG::Properties *properties = file.audioProperties();
   metaData["LENG"] = properties->length();
   metaData["BITR"] = properties->bitrate();
+  metaData["MTIM"] = FirnLibs::String::StringPrintf("%ld", FirnLibs::Files::FileModifiedTime(fileName));
   return true;
 }
 
