@@ -26,10 +26,23 @@ void Mp3Stream::initialize()
   SoundStream::initialize(2, 44100);
 }
 
+
 Mp3Stream::~Mp3Stream()
 {
   Cleanup();
   mpg123_exit();
+}
+
+
+void Mp3Stream::PlayTrack(const std::string &track)
+{
+  std::lock_guard<std::recursive_mutex> theLock(theMutex);
+  if(mpg123_open(mh, track.c_str()) != MPG123_OK)
+    return;
+
+  mpg123_getformat(mh, &pendingRate, &channels, &encoding);
+  curTrack = track;
+  play();
 }
 
 

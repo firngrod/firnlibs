@@ -17,6 +17,8 @@ namespace FirnLibs
 
       //bool SetCurrent(const std::string &track);
       void SetNextGetter(const std::function<std::string (const std::string &lastTrack)> callback);
+      void PlayTrack(const std::string &track);
+      std::string GetCurrent() { return curTrack; }
     protected:
       std::vector<unsigned char> dataChunk;
       bool onGetData(SoundStream::Chunk& data);

@@ -9,7 +9,7 @@
 namespace FirnLibs{ namespace Mp3{
 
 
-bool GetMetadata(Json::Value &metaData, const std::string &fileName)
+bool GetMetadata(Json::Value &metaData, const std::string &fileName, const std::vector<std::string> & needValues, const std::string &defaultval)
 {
   TagLib::MPEG::File file(fileName.c_str());
   // If it has an ID3v2Tag, we use that.
@@ -32,6 +32,15 @@ bool GetMetadata(Json::Value &metaData, const std::string &fileName)
   metaData["LENG"] = properties->length();
   metaData["BITR"] = properties->bitrate();
   metaData["MTIM"] = FirnLibs::String::StringPrintf("%ld", FirnLibs::Files::FileModifiedTime(fileName));
+
+  // Do the defaults.
+  for(const std::string &ndef: needValues)
+  {
+    if(metaData.get(ndef, "").asString() == "")
+    {
+      metaData[ndef] = defaultval;
+    }
+  }
   return true;
 }
 
