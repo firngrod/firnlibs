@@ -14,7 +14,7 @@ sharedThis(new FirnLibs::Threading::GuardedVar<Listener *>(this))
 Networking::Listener::~Listener()
 {
   {
-    auto token = sharedThis->Get();
+    auto token = sharedThis->Get("Listener deconstructor");
     token = nullptr;
   }
   Stop();
@@ -39,13 +39,13 @@ bool Networking::Listener::Listen(const int &port, const std::function<void (con
 
   auto lambda = [sharedCpy](const std::shared_ptr<Client> &client) -> void
   {
-    auto token = (*sharedCpy)->Get();
+    auto token = (*sharedCpy)->Get("Listener client callback");
     if((Listener *)token != nullptr)
       ((Listener *)token)->Callback(client);
   };
   auto errorLambda = [sharedCpy](const int &errorNo) -> void
   {
-    auto token = (*sharedCpy)->Get();
+    auto token = (*sharedCpy)->Get("Listener error callback");
     if((Listener *)token != nullptr)
       ((Listener *)token)->ErrorCallback(errorNo);
   };
@@ -55,7 +55,7 @@ bool Networking::Listener::Listen(const int &port, const std::function<void (con
     // If we wait until we can lock, we should be good.
     // This may still be capable of breakage if two threads start "simultaneously" and the other one gets the lock first.
     {
-      auto token = (*sharedCpy)->Get();
+      auto token = (*sharedCpy)->Get("Listener cleanup callback");
     }
     delete sharedCpy;
   };
@@ -71,7 +71,7 @@ bool Networking::Listener::Listen(const int &port, const std::function<void (con
 
 void Networking::Listener::Stop()
 {
-  auto token = sharedThis->Get();
+  auto token = sharedThis->Get("Listener Stop");
   Networking::GetInstance().SignalCloseSocket(identifier);
   identifier = 0;
 }

@@ -5,14 +5,14 @@ namespace FirnLibs { namespace Threading {
 
 Threadpool::Threadpool(const size_t &count)
 {
-  auto tok = finishing.Get();
+  auto tok = finishing.Get("Threadpool constructor");
   tok = false;
   SetThreadCount(count);
 }
 
 Threadpool::~Threadpool()
 {
-  auto tok = finishing.Get();
+  auto tok = finishing.Get("Threadpool deconstructor");
   tok = true;
   // Remove the threads.  Note that this is blocking.
   SetThreadCount(0);
@@ -88,7 +88,7 @@ void Threadpool::RunnerFunc(Threadpool::ThreadParams * params)
 bool Threadpool::Push(std::function<void()> func)
 {
   // Are we trying to wind it down?
-  if(finishing.Get())
+  if(finishing.Get("Threadpool Push"))
     return false;
 
   // Push it on the queue.
@@ -101,7 +101,7 @@ bool Threadpool::Push(std::function<void()> func)
 void Threadpool::FinishUp()
 {
   // Signal that we want to wind it down.
-  finishing.Get() = true;
+  finishing.Get("Threadpool FinishUp") = true;
 
   if(!queue.CanPop())
     return;

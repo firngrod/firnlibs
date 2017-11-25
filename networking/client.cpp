@@ -16,7 +16,7 @@ sharedThis(new FirnLibs::Threading::GuardedVar<Client *>(this))
 Networking::Client::~Client()
 {
   {
-    auto token = sharedThis->Get();
+    auto token = sharedThis->Get("Client deconstructor");
     token = nullptr;
   }
   if(limboState != nullptr)
@@ -53,14 +53,14 @@ bool Networking::Client::Commence(const std::function<void (const std::vector<un
   auto sharedCpy = new std::shared_ptr<FirnLibs::Threading::GuardedVar<Client *> >(sharedThis);
   auto lambda = [sharedCpy](const std::vector<unsigned char> &message) -> void 
   {
-    auto token = (*sharedCpy)->Get();
+    auto token = (*sharedCpy)->Get("Client data callback");
     if((Client *)token != nullptr)
       ((Client *)token)->HandleIncData(message);
   };
 
   auto errorLambda = [sharedCpy](const int &errorNo) -> void
   {
-    auto token = (*sharedCpy)->Get();
+    auto token = (*sharedCpy)->Get("Client error callback");
     if((Client *)token != nullptr)
     {
       ((Client *)token)->ErrorCallback(errorNo);
@@ -73,7 +73,7 @@ bool Networking::Client::Commence(const std::function<void (const std::vector<un
     // If we wait until we can lock, we should be good.
     // This may still be capable of breakage if two threads start "simultaneously" and the other one gets the lock first.
     {
-      auto token = (*sharedCpy)->Get();
+      auto token = (*sharedCpy)->Get("Client cleanup callback");
     }
     delete sharedCpy;
   };
@@ -109,7 +109,7 @@ void Networking::Client::ErrorCallback(const int &errorNo)
 
 void Networking::Client::Send(const std::vector<unsigned char> &data)
 {
-  auto lock = sharedThis->Get();
+  auto lock = sharedThis->Get("Client Send");
   PipeMessagePack messagePack;
   messagePack.identifier = identifier;
   messagePack.msg = ConnectionQueueData;
@@ -122,7 +122,7 @@ bool Networking::Client::Connect(const int &port, const std::string &address, co
                                  const std::function<void (const std::vector<unsigned char> &)> &callback,
                                  const std::function<void (const int &)> &errorCallback)
 {
-  auto lock = sharedThis->Get();
+  auto lock = sharedThis->Get("Client connect");
   if(identifier != 0)
     return false;
 
@@ -133,14 +133,14 @@ bool Networking::Client::Connect(const int &port, const std::string &address, co
   auto sharedCpy = new std::shared_ptr<FirnLibs::Threading::GuardedVar<Client *> >(sharedThis);
   auto lambda = [sharedCpy](const std::vector<unsigned char> &message) -> void 
   {
-    auto token = (*sharedCpy)->Get();
+    auto token = (*sharedCpy)->Get("Client Connect data callback");
     if((Client *)token != nullptr)
       ((Client *)token)->HandleIncData(message);
   };
 
   auto errorLambda = [sharedCpy](const int &errorNo) -> void
   {
-    auto token = (*sharedCpy)->Get();
+    auto token = (*sharedCpy)->Get("Client Connect error callback");
     if((Client *)token != nullptr)
     {
       ((Client *)token)->ErrorCallback(errorNo);
@@ -153,7 +153,7 @@ bool Networking::Client::Connect(const int &port, const std::string &address, co
     // If we wait until we can lock, we should be good.
     // This may still be capable of breakage if two threads start "simultaneously" and the other one gets the lock first.
     {
-      auto token = (*sharedCpy)->Get();
+      auto token = (*sharedCpy)->Get("Client Connect cleanup callback");
     }
     delete sharedCpy;
   };

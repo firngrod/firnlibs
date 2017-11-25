@@ -29,7 +29,7 @@ SQLite::~SQLite()
 void SQLite::Cleanup()
 {
   {
-    auto tok = statementMap.Get();
+    auto tok = statementMap.Get("SQLite Cleanup");
     while(tok->size() > 0)
     {
       Unprepare(tok->front());
@@ -99,7 +99,7 @@ sqlite3_stmt *SQLite::Prepare(const std::string &statementStr)
   lastDBError = sqlite3_prepare_v2(db, statementStr.c_str(), statementStr.size(), &prepped, &dummy);
   if(prepped != nullptr)
   {
-    auto tok = statementMap.Get();
+    auto tok = statementMap.Get("SQLite Prepare");
     tok->push_back(prepped);
   }
   return prepped;
@@ -108,7 +108,7 @@ sqlite3_stmt *SQLite::Prepare(const std::string &statementStr)
 
 void SQLite::Unprepare(sqlite3_stmt *statement)
 {
-  auto tok = statementMap.Get();
+  auto tok = statementMap.Get("SQLite Unprepare");
   auto itr = std::find(tok->begin(), tok->end(), statement);
   if(itr == tok->end())
     return;

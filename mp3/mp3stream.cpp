@@ -36,12 +36,14 @@ Mp3Stream::~Mp3Stream()
 
 void Mp3Stream::PlayTrack(const std::string &track)
 {
-  std::lock_guard<std::recursive_mutex> theLock(theMutex);
-  if(mpg123_open(mh, track.c_str()) != MPG123_OK)
-    return;
+  {
+    std::lock_guard<std::recursive_mutex> theLock(theMutex);
+    if(mpg123_open(mh, track.c_str()) != MPG123_OK)
+      return;
 
-  mpg123_getformat(mh, &pendingRate, &channels, &encoding);
-  curTrack = track;
+    mpg123_getformat(mh, &pendingRate, &channels, &encoding);
+    curTrack = track;
+  }
   play();
 }
 
