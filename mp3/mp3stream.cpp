@@ -71,7 +71,7 @@ bool Mp3Stream::onGetData(SoundStream::Chunk &data)
 
   if(pendingRate != 0)
   {
-    dataChunk.resize(pendingRate);
+    dataChunk.resize(pendingRate * 2);
     rate = pendingRate;
     pendingRate = 0;
     SoundStream::initialize(channels, rate);
