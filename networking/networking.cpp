@@ -491,7 +491,7 @@ void Networking::Cleanup()
 uint64_t Networking::GetIdentifier()
 {
   // Overflow and identifier collision is possible, but not probable.  The world will probably end first.
-  static int identifier = 0;
+  static uint64_t identifier = 0;
   // identifier == 0 signals invalid identifier.
   do identifier++; while (identifier == 0);
   return identifier;
