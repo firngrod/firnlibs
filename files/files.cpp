@@ -1,11 +1,15 @@
 #include "files.hpp"
 #include <sys/stat.h>
-#include <dirent.h>
+//#include <dirent.h>
 #include <list>
 #include <json/value.h>
 #include <iostream>
 #include <algorithm>
+#ifdef _MSC_VER
+#include <filesystem>
+#else
 #include <boost/filesystem.hpp>
+#endif
 
 namespace FirnLibs { namespace Files {
 

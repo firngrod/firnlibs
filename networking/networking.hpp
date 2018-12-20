@@ -1,9 +1,13 @@
 #pragma once
 #define _Networking_h_
 #include <vector>
+#ifndef _MSC_VER
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#else
+#include "Winsock2.h"
+#endif
 #include "../threading/threadpool.hpp"
 #include "../threading/guardedvar.hpp"
 #include <map>
@@ -67,12 +71,18 @@ namespace FirnLibs
     void SignalCloseSocket(const uint64_t &identifier);
     void Cleanup();
     std::thread selectThread;
+#ifdef _MSC_VER
+    WSADATA wsaData;
+#endif
 
     // Select dancer function
     void PollDancer();
 
     // Pipe handling
     int pipe_fds[2];  // Signal pipe for the select dancer
+#ifdef _MSC_VER
+    HANDLE pipeEvent;
+#endif
     bool HandlePipe(const pollfd &pfd, std::vector<PipeMessagePack> &pipeData);
 
     // Listener handling.
@@ -83,6 +93,9 @@ namespace FirnLibs
       std::function<void ()> cleanupCallback;
       sockaddr_in addr;
       uint64_t identifier;
+#ifdef _MSC_VER
+      HANDLE eventHandle;
+#endif
     };
     std::map<int, ListenerState> listeners;  // Listening sockets.
     bool HandleListener(const pollfd &pfd, const ListenerState &lState);
@@ -96,6 +109,9 @@ namespace FirnLibs
       std::function<void ()> cleanupCallback;
       uint64_t identifier;
       std::vector<unsigned char> sendBuf;
+#ifdef _MSC_VER
+      HANDLE eventHandle;
+#endif
     };
     std::map<int, ClientState> clients;
     bool HandleClient(const pollfd &pfd, ClientState &cState);

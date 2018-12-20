@@ -15,7 +15,7 @@ void StringPrintfVA(std::string &output, const std::string &Format, va_list &For
   // Now use this info to make a buffer and vsprintf into it, convert it into an std::string, clean up and return
   // the string.
   char * Buffer = new char[TotalLength + 1];
-  vsprintf(Buffer, Format.c_str(), FormatArgs);
+  vsnprintf(Buffer, sizeof(Buffer), Format.c_str(), FormatArgs);
   output = Buffer;
   va_end(FormatArgs);
   delete[] Buffer;
@@ -25,15 +25,23 @@ void StringPrintfVA(std::string &output, const std::string &Format, va_list &For
 namespace FirnLibs{ namespace String{ 
 
 
-
+#ifdef _MSC_VER
+void StringPrintf(std::string &output, const std::string format, ...)
+#else
 void StringPrintf(std::string &output, const std::string &format, ...)
+#endif
 {
   va_list formatArgs;
   va_start(formatArgs, format);
   StringPrintfVA(output, format, formatArgs);
 }
 
+
+#ifdef _MSC_VER
+std::string StringPrintf(const std::string format, ...)
+#else
 std::string StringPrintf(const std::string &format, ...)
+#endif
 {
   va_list formatArgs;
   va_start(formatArgs, format);
@@ -79,4 +87,28 @@ bool CmpNoCase(const std::string &first, const std::string &second, const bool &
   return lfirst == lsecond;
 }
 
+#ifdef _MSC_VER
+std::string WideStringToString(const std::wstring &str, const int &codePage)
+{
+	size_t bufSize = WideCharToMultiByte(codePage, 0, str.c_str(), str.size(), nullptr, 0, nullptr, nullptr);
+	char * tmpForOut = new char[bufSize + 1];
+	WideCharToMultiByte(codePage, 0, str.c_str(), str.size(), tmpForOut, sizeof(tmpForOut), nullptr, nullptr);
+	tmpForOut[sizeof(tmpForOut) - 1] = '\0';
+	std::string strOut = tmpForOut;
+	delete tmpForOut;
+	return strOut;
+}
+
+std::wstring StringToWideString(const std::string &str, const int &codePage)
+{
+	size_t bufSize = MultiByteToWideChar(codePage, 0, str.c_str(), str.size(), nullptr, 0);
+	wchar_t *tmpForOut = new wchar_t[bufSize + 1];
+	MultiByteToWideChar(codePage, 0, str.c_str(), str.size(), tmpForOut, sizeof(tmpForOut));
+	tmpForOut[sizeof(tmpForOut) - 1] = L'\0';
+	std::wstring strOut = tmpForOut;
+	delete tmpForOut;
+	return strOut;
+}
+
+#endif
 }}

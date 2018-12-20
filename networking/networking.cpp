@@ -1,11 +1,88 @@
 #include "networking.hpp"
-#include <unistd.h>
 #include <algorithm>
-#include <sys/ioctl.h>
 #include <cstring>
+#ifdef _MSC_VER
+#include <io.h>
+#include <fcntl.h>
+#else
+#include <sys/ioctl.h>
+#include <unistd.h>
 #include <netdb.h>
+#endif
 
 //#include <iostream>
+
+#ifdef _MSC_VER
+enum FDType
+{
+  Pipe,
+  Listener,
+  Client,
+};
+typedef struct localpollfd : public pollfd
+{
+  FDType type;
+  HANDLE wEvent;
+};
+#else
+#typedef pollfd localpollfd
+#endif
+
+
+#ifdef _MSC_VER
+int poll(_Inout_ localpollfd * fdArray, _In_ ULONG fds, _In_ INT timeout)
+{
+  // Sanity check to make sure that the &eventHandles[0] doesn't break the world.
+  if (fds == 0)
+    return 0;
+
+  // Create a list of events
+  std::vector<HANDLE> eventHandles(fds);
+  for (ULONG i = 0; i < fds; i++)
+  {
+    eventHandles[i] = fdArray[i].wEvent;
+  }
+
+  // TODO:  Make sure all sockets are reporting back for the stuff we actually want.
+
+
+  DWORD rc = WaitForMultipleObjects(eventHandles.size(), &eventHandles[0], false, -1);
+
+  // Okay, we have returned.  Find out which if any of the handles did something.
+  if (rc < WAIT_OBJECT_0 || rc > WAIT_OBJECT_0 + fds)
+    return -1;
+
+  for(DWORD i = rc - WAIT_OBJECT_0; i < fds; i++)
+  {
+    DWORD rc2 = WaitForSingleObject(eventHandles[i], 0);
+    if (rc2 != WAIT_TIMEOUT)
+    {
+      // This event is signalled.
+      switch (fdArray[i].type)
+      {
+      case FDType::Pipe:
+      {
+        // We only ever look for incoming data on this.
+        // Sure, it can be a close, but we handle for that elsewhere.
+        fdArray[i].revents = fdArray[i].events;
+      } break;
+      case FDType::Listener:
+      {
+      } break;
+      case FDType::Client:
+      {
+        // We only ever look for incoming data on this.
+        // Sure, it can be a close, but we handle for that elsewhere.
+        fdArray[i].revents = fdArray[i].events;
+      } break;
+      }
+    }
+
+
+
+  return 0;
+}
+#endif
 
 namespace FirnLibs {
 
@@ -23,13 +100,25 @@ Networking &Networking::GetInstance()
 
 Networking::Networking() : msgThreadpool(2)
 {
+#ifdef _MSC_VER
+  if(_pipe(pipe_fds, 0x1000, _O_BINARY))
+#else
   if(pipe(pipe_fds))
+#endif
     return;
+
+#ifdef _MSC_VER
+  pipeEvent = WSACreateEvent();
+#endif
 
   auto lambda = [](Networking *instance) -> void
   {
     instance->PollDancer();
   };
+
+#ifdef _MSC_VER
+  WSAStartup(MAKEWORD(2, 2), &wsaData);
+#endif
 
   selectThread = std::thread(lambda, this);
 }
@@ -41,33 +130,41 @@ Networking::~Networking()
 
 void Networking::PollDancer()
 {
-  std::vector<pollfd> pfds;
+  std::vector<localpollfd> pfds;
   std::vector<PipeMessagePack> pipeData;
 
   bool cleanup = false;
-  while(!cleanup)
+  while (!cleanup)
   {
     // Reset the poll fds.
     pfds.resize(0);
     pipeData.resize(0);
 
     // Add the pipe.
-    pfds.push_back(pollfd());
+    pfds.push_back(localpollfd());
     pfds[0].fd = pipe_fds[0];
     pfds[0].events = POLLIN;
+#ifdef _MSC_VER
+    pfds[0].type = FDType::Pipe;
+    pfds[0].wEvent = pipeEvent;
+#endif
     
     // Add the listening sockets.
     for(auto lItr: listeners)
     {
-      pfds.push_back(pollfd());
+      pfds.push_back(localpollfd());
       pfds.back().fd=lItr.first;
       pfds.back().events = POLLIN;
+#ifdef _MSC_VER
+      pfds[0].type = FDType::Listener;
+      pfds[0].wEvent = lItr.second.eventHandle;
+#endif
     }
 
     // Add the client sockets.
     for(auto cItr: clients)
     {
-      pfds.push_back(pollfd());
+      pfds.push_back(localpollfd());
       pfds.back().fd=cItr.first;
       // Poll for incoming data.
       pfds.back().events = POLLIN;
@@ -77,6 +174,10 @@ void Networking::PollDancer()
       {
         pfds.back().events |= POLLOUT;
       }
+#ifdef _MSC_VER
+      pfds[0].type = FDType::Client;
+      pfds[0].wEvent = cItr.second.eventHandle;
+#endif
     }
 
     // Do the poll

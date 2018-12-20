@@ -1,0 +1,126 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="crypto">
+      <UniqueIdentifier>{924bf2a0-79fa-47a9-a268-83c3efc74ecb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="files">
+      <UniqueIdentifier>{a7633d1e-41a2-4627-9d4f-77048b531594}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="mp3">
+      <UniqueIdentifier>{22fedbfa-21f4-4967-80f3-a1fb25de0c19}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="networking">
+      <UniqueIdentifier>{23424a64-c698-41e3-a689-2717657212f1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="sqlite">
+      <UniqueIdentifier>{051c4c9c-6934-44aa-b8ee-846d72ea0621}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="string">
+      <UniqueIdentifier>{19507697-c232-440d-bae9-9714bd01bb18}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="threading">
+      <UniqueIdentifier>{41c05f2c-dabb-415f-b190-5f85d66134d7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\crypto\aes.cpp">
+      <Filter>crypto</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\crypto\general.cpp">
+      <Filter>crypto</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\crypto\zip.cpp">
+      <Filter>crypto</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\files\files.cpp">
+      <Filter>files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\mp3\mp3stream.cpp">
+      <Filter>mp3</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\mp3\metadata.cpp">
+      <Filter>mp3</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\networking\networking.cpp">
+      <Filter>networking</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\networking\client.cpp">
+      <Filter>networking</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\networking\listener.cpp">
+      <Filter>networking</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\sqlite\prepvar.cpp">
+      <Filter>sqlite</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\sqlite\sqlite.cpp">
+      <Filter>sqlite</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\string\string.cpp">
+      <Filter>string</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\threading\threadpool.cpp">
+      <Filter>threading</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\crypto\aes.hpp">
+      <Filter>crypto</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\crypto\general.hpp">
+      <Filter>crypto</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\crypto\types.hpp">
+      <Filter>crypto</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\crypto\zip.hpp">
+      <Filter>crypto</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\files\files.hpp">
+      <Filter>files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\mp3\mp3stream.hpp">
+      <Filter>mp3</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\mp3\metadata.hpp">
+      <Filter>mp3</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\networking\listener.hpp">
+      <Filter>networking</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\networking\networking.hpp">
+      <Filter>networking</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\networking\client.hpp">
+      <Filter>networking</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\sqlite\sqlite.hpp">
+      <Filter>sqlite</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\string\string.hpp">
+      <Filter>string</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\threading\queue.hpp">
+      <Filter>threading</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\threading\threadpool.hpp">
+      <Filter>threading</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\threading\guardedvar.hpp">
+      <Filter>threading</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

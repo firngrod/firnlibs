@@ -1,6 +1,9 @@
 #pragma once
 #include <string>
 #include <vector>
+#ifdef _MSC_VER
+#include <Windows.h>
+#endif
 
 namespace FirnLibs
 {
@@ -15,5 +18,10 @@ namespace FirnLibs
 
     // Compare strings without case.
     bool CmpNoCase(const std::string &first, const std::string &second, const bool &noWaitIWannaDoCaseAnyway = false);
+
+#ifdef _MSC_VER
+	std::string WideStringToString(const std::wstring &wstr, const int &codePage = CP_UTF8);
+	std::wstring StringToWideString(const std::string &str, const int &codePage = CP_UTF8);
+#endif
   }
 }
