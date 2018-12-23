@@ -164,7 +164,7 @@ ErrorCode ReadFile(std::vector<unsigned char> &outBuffer, const std::string &fil
 
   // Fit the vector to this
   outBuffer.clear();
-  outBuffer.resize(fileSize);
+  outBuffer.reserve(fileSize);
 
   // Read the content of the file.
   outBuffer.insert(outBuffer.begin(), std::istream_iterator<unsigned char>(fileStream), std::istream_iterator<unsigned char>());
