@@ -1,3 +1,10 @@
+NOTICE:  While all the code in this repository/project (FirnLibs) is at rest
+distributed under the MIT license, the code may rely on other libraries which
+are not!  I recommend not distributing this code in it's compiled state
+without first verifying that each dependency of this code complies with your
+license.
+
+
 MIT License
 
 Copyright (c) 2016 firngrod
