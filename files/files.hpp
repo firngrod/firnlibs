@@ -1,11 +1,19 @@
 #pragma once
 #include <string>
 #include <functional>
+#include <vector>
 
 namespace FirnLibs
 {
   namespace Files
   {
+    // Error codes
+    enum ErrorCode
+    {
+      None,
+      FileDoesNotExist,
+    };
+
     // Cleans a linux path.  It removes double and trailing /s and evaluates relative paths.
     std::string CleanPath(const std::string &input);
 
@@ -28,6 +36,9 @@ namespace FirnLibs
 
     // Create a folder
     bool CreateFolder(const std::string &dirPath);
+    
+    // Read a file into binary buffer.
+    ErrorCode ReadFile(std::vector<unsigned char> &outBuffer, const std::string &filePath);
 
   }
 }

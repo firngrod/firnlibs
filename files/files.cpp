@@ -6,6 +6,7 @@
 #include <iostream>
 #include <algorithm>
 #include <boost/filesystem.hpp>
+#include <iostream>
 
 namespace FirnLibs { namespace Files {
 
@@ -145,5 +146,30 @@ bool CreateFolder(const std::string &dirPath)
   return true;
 }
 
+
+ErrorCode ReadFile(std::vector<unsigned char> &outBuffer, const std::string &filePath)
+{
+  // Sanity check!
+  if(!Exists(filePath))
+  {
+    return ErrorCode::FileDoesNotExist;
+  }
+  
+  std::ifstream fileStream(filePath, std::ios::binary);
+
+  // Get the file size
+  fileStream.seekg(0, std::ios::end);
+  size_t fileSize = fileStream.tellg();
+  fileStream.seekg(0, std::ios::beg);
+
+  // Fit the vector to this
+  outBuffer.clear();
+  outBuffer.resize(fileSize);
+
+  // Read the content of the file.
+  outBuffer.insert(outBuffer.begin(), std::istream_iterator<unsigned char>(fileStream), std::istream_iterator<unsigned char>());
+
+  return ErrorCode::None;
+}
 
 }}
