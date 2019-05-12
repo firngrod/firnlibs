@@ -67,7 +67,8 @@ int UnpreparedExecuteCallback(void * stdFuncCallback, int argc, char **argv, cha
 {
   auto *fncPtr = (std::function<int (int argc, char **argv, char **argv2)> *) stdFuncCallback;
   if(*fncPtr != nullptr)
-    (*fncPtr)(argc, argv, argv2);
+    return (*fncPtr)(argc, argv, argv2);
+  return 0;
 }
 
 

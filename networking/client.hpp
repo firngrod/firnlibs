@@ -22,7 +22,7 @@
                    const std::function<void (const std::vector<unsigned char> &)> &callback,
                    const std::function<void (const int &)> &errorCallback);
 
-      bool Commence(const std::function<void (const std::vector<unsigned char> &)> callback,
+      void Commence(const std::function<void (const std::vector<unsigned char> &)> callback,
                     const std::function<void (const int &)> errorCallback = nullptr);
 
       void Send(const std::vector<unsigned char> &data);

@@ -16,7 +16,7 @@ namespace FirnLibs
       friend GuardedVar;
       public:
         TT *operator->() { return &child; }
-        Token<TT> &operator=(const TT &other) { child = other; }
+        Token<TT> &operator=(const TT &other) { child = other; return *this; }
         operator TT&() { return child; };
         operator TT() const { return child; }
         TT Copy() const { return child; }

@@ -167,6 +167,7 @@ void SQLite::Prepvar::Cleanup()
 SQLite::Prepvar &SQLite::Prepvar::operator=(const Prepvar &other)
 {
   CopyFromOther(other);
+  return *this;
 }
 
 

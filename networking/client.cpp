@@ -32,7 +32,7 @@ Networking::Client::~Client()
   }
 }
 
-bool Networking::Client::Commence(const std::function<void (const std::vector<unsigned char> &)> callback,
+void Networking::Client::Commence(const std::function<void (const std::vector<unsigned char> &)> callback,
                                   const std::function<void (const int &)> errorCallback)
 {
   // Sanity check
