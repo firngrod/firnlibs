@@ -52,7 +52,7 @@ int poll(_Inout_ localpollfd * fdArray, _In_ ULONG fds, _In_ INT timeout)
   if (rc < WAIT_OBJECT_0 || rc > WAIT_OBJECT_0 + fds)
     return -1;
 
-  for(DWORD i = rc - WAIT_OBJECT_0; i < fds; i++)
+  for (DWORD i = rc - WAIT_OBJECT_0; i < fds; i++)
   {
     DWORD rc2 = WaitForSingleObject(eventHandles[i], 0);
     if (rc2 != WAIT_TIMEOUT)
@@ -68,6 +68,10 @@ int poll(_Inout_ localpollfd * fdArray, _In_ ULONG fds, _In_ INT timeout)
       } break;
       case FDType::Listener:
       {
+        // See which network events we have.
+        WSANETWORKEVENTS networkEvent;
+        WSAEnumNetworkEvents(fdArray[i].fd, 0, &networkEvent);
+        fdArray[i].revents = networkEvent.lNetworkEvents;
       } break;
       case FDType::Client:
       {
@@ -77,7 +81,7 @@ int poll(_Inout_ localpollfd * fdArray, _In_ ULONG fds, _In_ INT timeout)
       } break;
       }
     }
-
+  }
 
 
   return 0;
