@@ -1,24 +1,41 @@
 #pragma once
 #include <string>
 #include <functional>
-#include <vector>
+#ifdef _MSC_VER
+#include "Windows.h"
+#include "../string/string.hpp"
+#endif
 
 namespace FirnLibs
 {
   namespace Files
   {
-    // Error codes
-    enum ErrorCode
-    {
-      None,
-      FileDoesNotExist,
-    };
-
     // Cleans a linux path.  It removes double and trailing /s and evaluates relative paths.
     std::string CleanPath(const std::string &input);
 
     // Returns home path.
-    inline std::string HomePath() { return std::string(getenv("HOME")); }
+	inline std::string HomePath()
+	{
+#ifdef _MSC_VER
+		// Isn't the Windows way just wonderful compared to the Linux way?
+		size_t bufSize = 0;
+		wchar_t *output;
+		errno_t rc = _wdupenv_s(&output, &bufSize, L"HOMEDRIVE");
+		if (rc)
+			return "";
+		std::wstring wstrOut = output;
+		free(output);
+		rc = _wdupenv_s(&output, &bufSize, L"HOMEPATH");
+		if (rc)
+			return "";
+		wstrOut += output;
+		free(output);
+
+		return FirnLibs::String::WideStringToString(wstrOut);
+#else
+		return std::string(getenv("HOME"));
+#endif
+	}
 
     // Checks if a file exists.
     bool Exists(const std::string filePath);
@@ -36,9 +53,6 @@ namespace FirnLibs
 
     // Create a folder
     bool CreateFolder(const std::string &dirPath);
-    
-    // Read a file into binary buffer.
-    ErrorCode ReadFile(std::vector<unsigned char> &outBuffer, const std::string &filePath);
 
   }
 }

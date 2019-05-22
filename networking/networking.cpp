@@ -1,9 +1,11 @@
 #include "networking.hpp"
-#include <unistd.h>
 #include <algorithm>
-#include <sys/ioctl.h>
 #include <cstring>
+#ifdef __GNUC__
+#include <unistd.h>
+#include <sys/ioctl.h>
 #include <netdb.h>
+#endif
 
 //#include <iostream>
 
@@ -293,6 +295,7 @@ bool Networking::HandleListener(const pollfd &pfd, const ListenerState &lState)
   int newfd = 0;
 
   newfd = accept(pfd.fd, &clientAddr, &clilen);
+
   if(newfd >= 0)
   {
     // Handle the new client.  This is done by first putting it on hold until the user can specify callback and such.
@@ -340,7 +343,7 @@ bool Networking::HandleClient(const pollfd &pfd, ClientState &cState)
     size_t received = 0;
     while(received < readyData)
     {
-      received += read(pfd.fd, &(*message)[received], readyData - received);
+      received += read(pfd.fd, (char *)&(*message)[received], readyData - received);
     }
 
     msgThreadpool.Push([message, cState]()
@@ -355,7 +358,7 @@ bool Networking::HandleClient(const pollfd &pfd, ClientState &cState)
   if(pfd.revents & POLLOUT)
   {
     // Do send.  Ask it not to block.
-    ssize_t sentData = send(pfd.fd, &cState.sendBuf[0], cState.sendBuf.size(), MSG_DONTWAIT);
+    ssize_t sentData = send(pfd.fd, (char *)&cState.sendBuf[0], cState.sendBuf.size(), 0);
     
     // Did we have error?
     if(sentData == -1)
@@ -385,7 +388,7 @@ uint64_t Networking::ConnectTCP(const int &port, const std::string &address, con
   if(fd < 0)
     return 0;
 
-  hostent *server = gethostbyname(address.c_str());
+  hostent *server = (hostent*)gethostbyname(address.c_str());
   if(server == nullptr)
     return 0;
 
@@ -425,6 +428,7 @@ uint64_t Networking::Listen(const int &port, const std::function<void (const std
 
   // Get the fd
   int sockFd = socket(AF_INET, SOCK_STREAM, 0);
+  
   if(sockFd < 0)
     return 0;
 
@@ -435,7 +439,7 @@ uint64_t Networking::Listen(const int &port, const std::function<void (const std
   lAddr->sin_addr.s_addr = INADDR_ANY;
   lAddr->sin_port = htons(port);
   int truei=1;
-  setsockopt(sockFd, SOL_SOCKET, SO_REUSEADDR, &truei, sizeof(int));
+  setsockopt(sockFd, SOL_SOCKET, SO_REUSEADDR, (const char *)&truei, sizeof(int));
   if(bind(sockFd, (sockaddr *)lAddr, sizeof(sockaddr)) < 0)
   {
     delete lAddr;

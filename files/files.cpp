@@ -1,12 +1,15 @@
 #include "files.hpp"
 #include <sys/stat.h>
-#include <dirent.h>
+//#include <dirent.h>
 #include <list>
 #include <json/value.h>
 #include <iostream>
 #include <algorithm>
+#ifdef _MSC_VER
+#include <filesystem>
+#else
 #include <boost/filesystem.hpp>
-#include <iostream>
+#endif
 
 namespace FirnLibs { namespace Files {
 
@@ -146,30 +149,5 @@ bool CreateFolder(const std::string &dirPath)
   return true;
 }
 
-
-ErrorCode ReadFile(std::vector<unsigned char> &outBuffer, const std::string &filePath)
-{
-  // Sanity check!
-  if(!Exists(filePath))
-  {
-    return ErrorCode::FileDoesNotExist;
-  }
-  
-  std::ifstream fileStream(filePath, std::ios::binary);
-
-  // Get the file size
-  fileStream.seekg(0, std::ios::end);
-  size_t fileSize = fileStream.tellg();
-  fileStream.seekg(0, std::ios::beg);
-
-  // Fit the vector to this
-  outBuffer.clear();
-  outBuffer.reserve(fileSize);
-
-  // Read the content of the file.
-  outBuffer.insert(outBuffer.begin(), std::istream_iterator<unsigned char>(fileStream), std::istream_iterator<unsigned char>());
-
-  return ErrorCode::None;
-}
 
 }}

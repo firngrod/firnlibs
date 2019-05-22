@@ -1,9 +1,13 @@
 #pragma once
 #define _Networking_h_
 #include <vector>
+#ifdef __GNUC__
 #include <sys/poll.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#else
+#include "VCNetworking.hpp"
+#endif
 #include "../threading/threadpool.hpp"
 #include "../threading/guardedvar.hpp"
 #include <map>
@@ -11,6 +15,9 @@
 namespace FirnLibs
 {
   class Networking
+#ifdef _MSC_VER
+    : VCNetworking
+#endif
   {
   protected:
     // Struct definitions
