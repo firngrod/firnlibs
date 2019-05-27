@@ -116,7 +116,7 @@ std::string Replace(const std::string &original, const std::string &oldstr, cons
     {
       out += original.substr(oldpos, pos - oldpos);
       out += newstr;
-      oldpos = pos + newstr.size();
+      oldpos = pos + oldstr.size();
       ++cntDone;
       if(cntDone == cnt)
       {
