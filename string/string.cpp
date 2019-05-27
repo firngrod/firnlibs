@@ -66,6 +66,16 @@ std::vector<std::string> Split(const std::string &input, const std::string &deli
   return output;
 }
 
+void ToLower(std::string &str)
+{
+  std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+}
+
+void ToUpper(std::string &str)
+{
+  std::transform(str.begin(), str.end(), str.begin(), ::toupper);
+}
+
 // I have the option to not ignore case in case it's a user input or something whether to do case.
 bool CmpNoCase(const std::string &first, const std::string &second, const bool &noWaitIWannaDoCaseAnyway)
 {
@@ -74,9 +84,47 @@ bool CmpNoCase(const std::string &first, const std::string &second, const bool &
 
   std::string lfirst = first;
   std::string lsecond = second;
-  std::transform(lfirst.begin(), lfirst.end(), lfirst.begin(), ::tolower);
-  std::transform(lsecond.begin(), lsecond.end(), lsecond.begin(), ::tolower);
+  ToLower(lfirst);
+  ToLower(lsecond);
   return lfirst == lsecond;
+}
+
+std::string Replace(const std::string &original, const std::string &oldstr, const std::string &newstr, const bool &noCase, const size_t &start, const size_t cnt)
+{
+  // Sanity check
+  if(cnt == 0 || oldstr.size() == 0 || start >= original.size() || CmpNoCase(newstr, oldstr, !noCase))
+    return original;
+
+  std::string org = original;
+  std::string olds = oldstr;
+  if(noCase)
+  {
+    ToLower(org);
+    ToLower(olds);
+  }
+
+  std::string out = original.substr(0, start);
+  size_t pos = 0, oldpos = start, cntDone = 0;
+  while(pos != std::string::npos && cntDone < cnt)
+  {
+    pos = org.find(olds, oldpos);
+    if(pos == std::string::npos)
+    {
+      out += original.substr(oldpos, original.size() - oldpos);
+    }
+    else
+    {
+      out += original.substr(oldpos, pos - oldpos);
+      out += newstr;
+      oldpos = pos + newstr.size();
+      ++cntDone;
+      if(cntDone == cnt)
+      {
+        out += original.substr(oldpos, original.size() - oldpos);
+      }
+    }
+  }
+  return out;
 }
 
 }}
