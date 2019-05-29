@@ -127,4 +127,17 @@ std::string Replace(const std::string &original, const std::string &oldstr, cons
   return out;
 }
 
+std::string Trim(const std::string &original, const std::string &charsToTrim, const bool &trimLeft, const bool &trimRight)
+{
+  if(charsToTrim == "")
+    return original;
+
+  size_t start = trimLeft ? original.find_first_not_of(charsToTrim) : 0;
+  if(start == std::string::npos)
+    return original;
+  size_t end = trimRight ? original.find_last_not_of(charsToTrim) : original.size();
+
+  return original.substr(start, end - start + 1);
+}
+
 }}

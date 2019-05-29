@@ -25,5 +25,8 @@ namespace FirnLibs
     // Replace string occurences in string with other string
     std::string Replace(const std::string &original, const std::string &oldstr, const std::string &newstr,
                         const bool &noCase = false, const size_t &start = 0, const size_t cnt = -1);
+
+    // Trim unwanted characters from the end(s) of strings
+    std::string Trim(const std::string &original, const std::string &charsToTrim, const bool &trimLeft = true, const bool &trimRight = true);
   }
 }
