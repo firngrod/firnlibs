@@ -1,5 +1,7 @@
 #include "networking.hpp"
+#ifdef __GNUC__
 #include "unistd.h"
+#endif
 #include <iostream>
 
 namespace FirnLibs {
@@ -21,7 +23,7 @@ Networking::Client::~Client()
   }
   if(limboState != nullptr)
   {
-    close(limboState->fd);
+    //close(limboState->fd);
     delete (sockaddr *)limboState->pAddr;
     delete limboState;
   }

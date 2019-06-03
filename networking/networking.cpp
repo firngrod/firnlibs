@@ -175,9 +175,6 @@ void Networking::PollDancer()
 
       if(lItr.msg == SocketRemove)
       {
-        // Remove action depends on the type of socket.
-        close(lItr.fd);
-
         // Find the fd with the specified identifier.
         {
           auto itr = listeners.begin();
@@ -194,6 +191,7 @@ void Networking::PollDancer()
               });
               msgThreadpool.Push(itr->second.cleanupCallback);
             }
+            close(itr->first);
             listeners.erase(itr);
             continue;
           }
@@ -214,6 +212,7 @@ void Networking::PollDancer()
               });
               msgThreadpool.Push(itr->second.cleanupCallback);
             }
+            close(itr->first);
             clients.erase(itr);
             continue;
           }
