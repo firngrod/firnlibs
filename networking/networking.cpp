@@ -82,7 +82,8 @@ void Networking::PollDancer()
     }
 
     // Do the poll
-    poll(&pfds[0], pfds.size(), -1);
+    if (poll(&pfds[0], pfds.size(), -1) == -1)
+      cleanup = true;
 
     // Grab a snapshot of known descriptors so we know if any given descriptor is a listener, a data socket, whatever.
     // Notice that we don't lock the variables apart from just getting the copies.

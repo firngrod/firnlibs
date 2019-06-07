@@ -17,17 +17,18 @@ namespace FirnLibs
   {
     auto fdTok = fdVec.Get("FirnLibs::VCNetworking::pipe");
     auto &mref = *fdTok.operator->();
-    int rc = GetFD(fdTok);
-
     FdInfo tmpInfo;
     tmpInfo.type = FdType::ReadPipe;
-    tmpInfo.data = (__int64) new std::vector<unsigned char>();
     tmpInfo.event = std::shared_ptr<FdInfo::EventHolder>(new FdInfo::EventHolder(WSACreateEvent()));
+
+    int rc = GetFD(fdTok);
     mref.insert({ rc, tmpInfo });
+    __int64 tmp = mref[rc].data = (__int64) new std::shared_ptr<std::vector<unsigned char> >( new std::vector<unsigned char>());
     pipefds[0] = rc;
     rc = GetFD(fdTok);
     tmpInfo.type = FdType::WritePipe;
     mref.insert({ rc, tmpInfo });
+    mref[rc].data = (__int64) new std::shared_ptr<std::vector<unsigned char> >(*((std::shared_ptr<std::vector<unsigned char> >*)tmp));
     pipefds[1] = rc;
 
     return 0;
@@ -87,20 +88,42 @@ namespace FirnLibs
     auto &mref = *fdTok.operator->();
 
     std::map<int, FdInfo>::iterator fItr = mref.find(sockfd);
-    int rc = -10;
     switch (fItr->second.type)
     {
     case FdType::WritePipe:
     {
-      rc =SetEvent((HANDLE)*fItr->second.event);
+      delete (std::shared_ptr<std::vector<unsigned char> > *) fItr->second.data;
+      try
+      {
+        WSACloseEvent((HANDLE)*fItr->second.event);
+      }
+      catch (...)
+      {
+
+      }
+      *fItr->second.event = INVALID_HANDLE_VALUE;
       break;
     }
     case FdType::ReadPipe:
     {
-      rc =SetEvent((HANDLE)*fItr->second.event);
+      delete (std::shared_ptr<std::vector<unsigned char> > *) fItr->second.data;
+      try
+      {
+        WSACloseEvent((HANDLE)*fItr->second.event);
+      }
+      catch (...)
+      {
+
+      }
+      *fItr->second.event = INVALID_HANDLE_VALUE;
       break;
     }
+    case FdType::Socket:
+    {
+      closesocket(fItr->second.data);
     }
+    }
+    mref.erase(fItr);
 
     return 0;
   }
@@ -115,8 +138,15 @@ namespace FirnLibs
     {
     case FdType::ReadPipe:
     {
-      *readydata = (int)((std::vector<unsigned char>*)info.data)->size();
+      *readydata = (int)(*(std::shared_ptr<std::vector<unsigned char> > *)info.data)->size();
       return 0;
+    }
+    case FdType::Socket:
+    {
+      u_long ready = 0;
+      int rcioctl = ioctlsocket(info.data, FIONREAD, &ready);
+      *readydata = ready;
+      return rcioctl;
     }
     }
 
@@ -133,7 +163,7 @@ namespace FirnLibs
     {
     case FdType::WritePipe:
     {
-      std::vector<unsigned char> &datVec = *((std::vector<unsigned char>*)info.data);
+      std::vector<unsigned char> &datVec = *(*(std::shared_ptr<std::vector<unsigned char> > *)info.data);
       datVec.insert(datVec.end(), (unsigned char*)buf, (unsigned char*)buf + bufsize);
       WSASetEvent(*info.event);
       return (int)bufsize;
@@ -153,11 +183,18 @@ namespace FirnLibs
     {
     case FdType::ReadPipe:
     {
-      std::vector<unsigned char> &datVec = *((std::vector<unsigned char>*)info.data);
+      std::vector<unsigned char> &datVec = *(*(std::shared_ptr<std::vector<unsigned char> > *)info.data);
       ssize_t minSize = min(bufsize, datVec.size());
       memcpy_s(buf, bufsize, &datVec[0], minSize);
       datVec.erase(datVec.begin(), datVec.begin() + minSize);
+      WSAResetEvent(*info.event);
       return (int)bufsize;
+    }
+    case FdType::Socket:
+    {
+      int rc = recv(info.data, buf, bufsize, 0);
+      WSAResetEvent(*info.event);
+      return rc;
     }
     }
 
@@ -193,8 +230,28 @@ namespace FirnLibs
     if (info.event == nullptr)
     {
       info.event = std::shared_ptr<FdInfo::EventHolder>(new FdInfo::EventHolder(WSACreateEvent()));
-      int rc = WSAEventSelect(info.data, &info.event, FD_ACCEPT | FD_CLOSE);
+      WSAEventSelect(info.data, *info.event, FD_ACCEPT | FD_CLOSE);
     }
     return ::listen(info.data, backlog);
+  }
+
+
+  int VCNetworking::accept(int fd, sockaddr * addr, socklen_t* addrlen)
+  {
+    auto fdTok = fdVec.Get("FirnLibs::VCNetworking::close");
+    auto &mref = *fdTok.operator->();
+    FdInfo &info = mref[fd];
+    SOCKET rc = ::accept(info.data, addr, addrlen);
+    WSAResetEvent(*info.event);
+    if (rc == INVALID_SOCKET)
+      return rc;
+    int tmp = GetFD(fdTok);
+    FdInfo tmpInfo;
+    tmpInfo.type = FdType::Socket;
+    tmpInfo.event = std::shared_ptr<FdInfo::EventHolder>(new FdInfo::EventHolder(WSACreateEvent()));
+    tmpInfo.data = rc;
+    rc = WSAEventSelect(rc, *tmpInfo.event, FD_READ | FD_CLOSE);
+    mref.insert({ tmp, tmpInfo });
+    return tmp;
   }
 }

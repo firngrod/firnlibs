@@ -41,7 +41,7 @@ namespace FirnLibs
 
     int listen(int sockfd, int backlog);
 
-    int accept(int fd, sockaddr * addr, socklen_t* addrlen) { return 0; }
+    int accept(int fd, sockaddr * addr, socklen_t* addrlen);
 
     int send(int fd, char * buf, size_t size, int flags) { return 0; }
 
@@ -123,7 +123,6 @@ namespace FirnLibs
         case FdType::ReadPipe:
         case FdType::WritePipe:
         {
-          delete (std::vector<unsigned char> *) data;
           break;
         }
         }

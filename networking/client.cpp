@@ -21,9 +21,12 @@ Networking::Client::~Client()
     auto token = sharedThis->Get("Client deconstructor");
     token = nullptr;
   }
-  if(limboState != nullptr)
+  if (limboState != nullptr)
   {
-    //close(limboState->fd);
+#ifdef _MSC_VER
+    FirnLibs::Networking::GetInstance().
+#endif
+    close(limboState->fd);
     delete (sockaddr *)limboState->pAddr;
     delete limboState;
   }
