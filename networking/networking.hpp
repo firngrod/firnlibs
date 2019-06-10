@@ -102,7 +102,7 @@ namespace FirnLibs
       std::function<void (const int &)> errorCallback;
       std::function<void ()> cleanupCallback;
       uint64_t identifier;
-      std::vector<unsigned char> sendBuf;
+      std::vector<std::vector<unsigned char> *> sendBufs;
     };
     std::map<int, ClientState> clients;
     bool HandleClient(const pollfd &pfd, ClientState &cState);

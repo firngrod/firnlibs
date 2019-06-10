@@ -75,7 +75,7 @@ void Networking::PollDancer()
       pfds.back().events = POLLIN;
       // If we have data to send, poll for ready to send.
       // DO NOT poll for this if you don't have data.  It will always be ready to send.
-      if(cItr.second.sendBuf.size() > 0)
+      if(cItr.second.sendBufs.size() > 0)
       {
         pfds.back().events |= POLLOUT;
       }
@@ -214,6 +214,8 @@ void Networking::PollDancer()
               msgThreadpool.Push(itr->second.cleanupCallback);
             }
             close(itr->first);
+            for (std::vector<unsigned char> *buf : itr->second.sendBufs)
+              delete buf;
             clients.erase(itr);
             continue;
           }
@@ -228,9 +230,8 @@ void Networking::PollDancer()
 
         if(cItr != clients.end())
         {
-          cItr->second.sendBuf.insert(cItr->second.sendBuf.end(), lItr.pDataBuf->begin(), lItr.pDataBuf->end());
+          cItr->second.sendBufs.insert(cItr->second.sendBufs.end(), lItr.pDataBuf);
         }
-        delete lItr.pDataBuf;
       }
     }
   } // End master select loop while(!cleanup)
@@ -358,20 +359,28 @@ bool Networking::HandleClient(const pollfd &pfd, ClientState &cState)
   if(pfd.revents & POLLOUT)
   {
     // Do send.  Ask it not to block.
-    ssize_t sentData = send(pfd.fd, (char *)&cState.sendBuf[0], cState.sendBuf.size(), 0);
-    
-    // Did we have error?
-    if(sentData == -1)
+    ssize_t sentData;
+    do
     {
-      if(errno != EAGAIN || errno != EWOULDBLOCK)
+      sentData = send(pfd.fd, (char *)&(*cState.sendBufs[0])[0], (*cState.sendBufs[0]).size(), 0);
+      
+      // Did we have error?
+      if(sentData == -1)
       {
-        return false;
+        if(errno != EAGAIN && errno != EWOULDBLOCK)
+        {
+          return false;
+        }
+        return true;
       }
-      return true;
-    }
 
-    // We sent some data.  Clear it from the send buffer.
-    cState.sendBuf.erase(cState.sendBuf.begin(), cState.sendBuf.begin() + sentData);
+      // We sent some data.  Clear it from the send buffer.
+      if (sentData != -1)
+      {
+        delete cState.sendBufs[0];
+        cState.sendBufs.erase(cState.sendBufs.begin());
+      }
+    } while (cState.sendBufs.size() != 0 && sentData != -1);
   }
 
   return true;
@@ -387,6 +396,9 @@ uint64_t Networking::ConnectTCP(const int &port, const std::string &address, con
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   if(fd < 0)
     return 0;
+
+  int truei = 1;
+  setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, (const char *)&truei, sizeof(int));
 
   hostent *server = (hostent*)gethostbyname(address.c_str());
   if(server == nullptr)

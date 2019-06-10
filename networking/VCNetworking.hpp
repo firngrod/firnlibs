@@ -5,6 +5,9 @@
 #include "../threading/guardedvar.hpp"
 typedef INT_PTR ssize_t;
 typedef int socklen_t;
+#ifdef h_addr
+#undef h_addr
+#endif
 
 namespace FirnLibs
 {
@@ -17,6 +20,12 @@ namespace FirnLibs
       SHORT   events;
       SHORT   revents;
 
+    };
+
+    struct hostent
+    {
+      char h_addr[4];
+      size_t h_length;
     };
 
     VCNetworking();
@@ -43,18 +52,18 @@ namespace FirnLibs
 
     int accept(int fd, sockaddr * addr, socklen_t* addrlen);
 
-    int send(int fd, char * buf, size_t size, int flags) { return 0; }
+    int send(int fd, char * buf, size_t size, int flags);
 
-    int connect(_In_ SOCKET s, _In_reads_bytes_(namelen) const struct sockaddr FAR * name, _In_ int namelen) { return 0; }
+    int connect(_In_ SOCKET s, _In_reads_bytes_(namelen) const struct sockaddr FAR * name, _In_ int namelen);
 
-    hostent * gethostbyname(const char *name) { return nullptr; }
+    hostent * gethostbyname(const char *name);
 
     inline void bzero(void *buf, const size_t &n)
     {
       memset(buf, 0, n);
     }
 
-    inline void bcopy(void *target, void *src, const size_t &n)
+    inline void bcopy(void *src, void * target, const size_t &n)
     {
       memcpy_s(target, n, src, n);
     }
@@ -104,6 +113,8 @@ namespace FirnLibs
         HANDLE event;
       };
       std::shared_ptr<EventHolder> event;
+      bool sendReady;
+      std::shared_ptr<std::recursive_mutex> mut;
       FdInfo(const FdType &type, const __int64 &data)
       {
         this->type = type;

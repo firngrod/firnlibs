@@ -8,6 +8,8 @@ namespace FirnLibs
   {
     void StringToVector(ByteVector &theVector, const std::string &theString);
 
+    ByteVector StringToVector(const std::string &theString);
+
     void VectorToString(std::string &theString, const ByteVector &TheVector);
   }
 }

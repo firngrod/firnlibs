@@ -9,9 +9,16 @@ void StringToVector(ByteVector &theVector, const std::string &theString)
   memcpy(&theVector[0], theString.c_str(), theVector.size());
 }
 
+ByteVector StringToVector(const std::string &theString)
+{
+  ByteVector tmp;
+  StringToVector(tmp, theString);
+  return tmp;
+}
+
 void VectorToString(std::string &theString, const ByteVector &theVector)
 {
-  theString = (const char *)&theVector[0];
+  theString.insert(0, (const char *)&theVector[0], theVector.size());
 }
 
 }}
