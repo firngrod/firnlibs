@@ -15,7 +15,11 @@ void StringPrintfVA(std::string &output, const std::string &Format, va_list &For
   // Now use this info to make a buffer and vsprintf into it, convert it into an std::string, clean up and return
   // the string.
   char * Buffer = new char[TotalLength + 1];
+#ifdef _MSC_VER
   vsnprintf(Buffer, sizeof(Buffer), Format.c_str(), FormatArgs);
+#else
+  vsprintf(Buffer, Format.c_str(), FormatArgs);
+#endif
   output = Buffer;
   va_end(FormatArgs);
   delete[] Buffer;
@@ -166,7 +170,7 @@ std::string Trim(const std::string &original, const std::string &charsToTrim, co
 
   size_t start = trimLeft ? original.find_first_not_of(charsToTrim) : 0;
   if(start == std::string::npos)
-    return original;
+    return "";
   size_t end = trimRight ? original.find_last_not_of(charsToTrim) : original.size();
 
   return original.substr(start, end - start + 1);
