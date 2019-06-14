@@ -101,6 +101,7 @@ bool CmpNoCase(const std::string &first, const std::string &second, const bool &
   return lfirst == lsecond;
 }
 
+
 #ifdef _MSC_VER
 std::string WideStringToString(const std::wstring &str, const int &codePage)
 {
@@ -123,8 +124,9 @@ std::wstring StringToWideString(const std::string &str, const int &codePage)
 	delete tmpForOut;
 	return strOut;
 }
-
 #endif
+
+
 std::string Replace(const std::string &original, const std::string &oldstr, const std::string &newstr, const bool &noCase, const size_t &start, const size_t cnt)
 {
   // Sanity check
