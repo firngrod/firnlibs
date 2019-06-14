@@ -1,6 +1,6 @@
 #include "files.hpp"
 #include <sys/stat.h>
-//#include <dirent.h>
+#include <dirent.h>
 #include <list>
 #include <json/value.h>
 #include <iostream>
