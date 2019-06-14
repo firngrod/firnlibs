@@ -42,6 +42,15 @@ void Mp3Stream::PlayTrack(const std::string &track)
       return;
 
     mpg123_getformat(mh, &pendingRate, &channels, &encoding);
+    if(pendingRate != rate)
+    {
+      dataChunk.resize(pendingRate * 2);
+      rate = pendingRate;
+      pendingRate = 0;
+      SoundStream::initialize(channels, rate);
+    }
+    pendingRate = 0;
+
     curTrack = track;
   }
   play();
@@ -75,6 +84,7 @@ bool Mp3Stream::onGetData(SoundStream::Chunk &data)
     rate = pendingRate;
     pendingRate = 0;
     SoundStream::initialize(channels, rate);
+    play();
   }
 
   data.samples = (sf::Int16 *)&dataChunk[0];
@@ -100,6 +110,8 @@ bool Mp3Stream::onGetData(SoundStream::Chunk &data)
           continue;
 
         mpg123_getformat(mh, &pendingRate, &channels, &encoding);
+        if(rate == pendingRate)
+          pendingRate = 0;
         openedNew = true;
       }
     } while(curTrack != "" && openedNew == false);
