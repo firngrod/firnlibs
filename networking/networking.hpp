@@ -122,13 +122,14 @@ namespace FirnLibs
 
     // Singleton class definitions
   public:
-    static void Init();
+    // Init with size of the desired threadpool.  Default (0) sets pool size to the count of logical processors.
+    static void Init(const size_t &threadPoolSize = 0);
     Networking(const Networking &) = delete;
     void operator=(const Networking &) = delete;
     ~Networking();
   protected:
-    static Networking &GetInstance();
-    Networking();
+    static Networking &GetInstance(const size_t &threadPoolSize = 0);
+    Networking(const size_t &threadPoolSize);
 
   };
 }

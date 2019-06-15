@@ -14,14 +14,16 @@ namespace FirnLibs
     {
     public:
       // Initialize the threadpool with a number of slave threads.
-      Threadpool(const size_t &count);
+      // count of -1 (yes, I know, unsigned size, just go with it) sets thread count to processor count
+      Threadpool(const size_t &threadCount = -1);
       
       // Beware when deconstructing the threadpool since this will leak all unfinished queued jobs.
       // It is recommended to do a FinishUp() first, although if terminating the program, you may not care.
       ~Threadpool();
 
       // Update the amount of available threads.
-      void SetThreadCount(const size_t &count);
+      // count of -1 (yes, I know, unsigned size, just go with it) sets thread count to processor count
+      void SetThreadCount(const size_t &threadCount = -1);
 
       // Push another job to the threadpool.
       // Returns false if the threadpool is trying to wind down.

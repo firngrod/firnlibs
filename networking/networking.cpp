@@ -12,18 +12,21 @@
 namespace FirnLibs {
 
 // Init
-void Networking::Init()
+void Networking::Init(const size_t &threadPoolSize)
 {
-  GetInstance();
+  size_t threadCount = threadPoolSize;
+  if(threadCount == 0)
+    threadCount = -1;
+  GetInstance(threadCount);
 }
 
-Networking &Networking::GetInstance()
+Networking &Networking::GetInstance(const size_t &threadPoolSize)
 {
-  static Networking instance;
+  static Networking instance(threadPoolSize);
   return instance;
 }
 
-Networking::Networking() : msgThreadpool(2)
+Networking::Networking(const size_t &threadPoolSize) : msgThreadpool(threadPoolSize)
 {
   if(pipe(pipe_fds))
     return;

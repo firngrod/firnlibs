@@ -1,13 +1,14 @@
 #include "threadpool.hpp"
+#include "../system/system.hpp"
 #include <vector>
 
 namespace FirnLibs { namespace Threading {
 
-Threadpool::Threadpool(const size_t &count)
+Threadpool::Threadpool(const size_t &threadCount)
 {
   auto tok = finishing.Get("Threadpool constructor");
   tok = false;
-  SetThreadCount(count);
+  SetThreadCount(threadCount);
 }
 
 Threadpool::~Threadpool()
@@ -18,8 +19,12 @@ Threadpool::~Threadpool()
   SetThreadCount(0);
 }
 
-void Threadpool::SetThreadCount(const size_t &count)
+void Threadpool::SetThreadCount(const size_t &threadCount)
 {
+  size_t count = threadCount;
+  if(count == -1)
+    count = FirnLibs::System::GetProcessorCount();
+
   std::lock_guard<std::mutex> threadLock(threadMutex);
   // Ramp up the threads.
   while(threadList.size() < count)
