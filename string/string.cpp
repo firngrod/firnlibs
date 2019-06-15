@@ -29,28 +29,22 @@ void StringPrintfVA(std::string &output, const std::string &Format, va_list &For
 namespace FirnLibs{ namespace String{ 
 
 
-#ifdef _MSC_VER
 void StringPrintf(std::string &output, const std::string format, ...)
-#else
-void StringPrintf(std::string &output, const std::string &format, ...)
-#endif
 {
   va_list formatArgs;
   va_start(formatArgs, format);
   StringPrintfVA(output, format, formatArgs);
+  va_end(formatArgs);
 }
 
 
-#ifdef _MSC_VER
 std::string StringPrintf(const std::string format, ...)
-#else
-std::string StringPrintf(const std::string &format, ...)
-#endif
 {
   va_list formatArgs;
   va_start(formatArgs, format);
   std::string returnString;
   StringPrintfVA(returnString, format, formatArgs);
+  va_end(formatArgs);
   return returnString;
 }
 

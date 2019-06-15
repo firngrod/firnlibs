@@ -10,8 +10,8 @@ namespace FirnLibs
   namespace String
   {
     // Good ole sprintf, just with std::string.
-    std::string StringPrintf(const std::string &format, ...);
-    void StringPrintf(std::string &output, const std::string &format, ...);
+    std::string StringPrintf(const std::string format, ...);
+    void StringPrintf(std::string &output, const std::string format, ...);
 
     // Split a string into tokens based on delimiters.
     std::vector<std::string> Split(const std::string &input, const std::string &delimiters = " ", const bool &noEmpty = true);
